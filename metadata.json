@@ -1,0 +1,6 @@
+{
+  "name": "Public Address System",
+  "description": "Platform Digital Twin 3D IP Public Address System Bandara dengan pemantauan telemetri waktu-nyata, matriks prioritas EN 54-16, pengumuman FIDS otomatis, dan simulasi akustik spasial.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
