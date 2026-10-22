@@ -8,6 +8,7 @@ import {
   Building2,
   Focus,
   Map as MapIcon,
+  Volume2,
   X,
 } from 'lucide-react';
 import {
@@ -15,7 +16,7 @@ import {
   VisualizerMode,
   CameraPresetType,
 } from '../three/AirportSceneManager';
-import { MacroZone, IPSpeaker, ZoneId } from '../types/pa-system';
+import { MacroZone, IPSpeaker, ZoneId, SpeakerCategory } from '../types/pa-system';
 
 interface DigitalTwinCanvasProps {
   macroZones: MacroZone[];
@@ -49,7 +50,8 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   const isPresetChangeRef = useRef<boolean>(false);
   const [activePreset, setActivePreset] = useState<CameraPresetType>('overview');
   const [showMasterplanPip, setShowMasterplanPip] = useState<boolean>(false);
-  const [pipTab, setPipTab] = useState<'parkir' | 'masterplan'>('parkir');
+  const [pipTab, setPipTab] = useState<'speaker' | 'lantai1' | 'lantai2' | 'parkir' | 'masterplan'>('speaker');
+  const [speakerCategoryFilter, setSpeakerCategoryFilter] = useState<SpeakerCategory | 'all'>('all');
 
   // Initialize Three.js scene once
   useEffect(() => {
@@ -147,6 +149,16 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
     }, 50);
   };
 
+  const handleSelectSpeakerCategory = (cat: SpeakerCategory | 'all') => {
+    const nextCat = speakerCategoryFilter === cat && cat !== 'all' ? 'all' : cat;
+    setSpeakerCategoryFilter(nextCat);
+    managerRef.current?.setSpeakerCategoryFilter(nextCat);
+  };
+
+  const ceilingCount = speakers.filter((s) => s.category === 'ceiling').length;
+  const columnCount = speakers.filter((s) => s.category === 'column').length;
+  const hornCount = speakers.filter((s) => s.category === 'horn').length;
+
   const activeZoneObj = selectedZoneId
     ? macroZones.find((z) => z.id === selectedZoneId)
     : null;
@@ -175,10 +187,36 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                 ? 'bg-sky-500 text-white shadow-sm'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin Makassar (WAAA)"
+            title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin Makassar (WAAA) beserta Atap Bandara"
           >
             <Building2 className="w-3 h-3" />
             <span>Semua Terminal</span>
+          </button>
+
+          <button
+            onClick={() => handleSelectPreset('lantai1')}
+            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+              activePreset === 'lantai1'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-amber-300 hover:bg-slate-800 border border-amber-500/30'
+            }`}
+            title="Tampilan Mockup Lantai 1 (Cutaway Area Klaim Bagasi 9 Conveyor, BHS Hall, Terminal Utama, Eksisting & Selatan)"
+          >
+            <Layers className="w-3 h-3" />
+            <span>Mockup Lantai 1</span>
+          </button>
+
+          <button
+            onClick={() => handleSelectPreset('lantai2')}
+            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+              activePreset === 'lantai2'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : 'text-emerald-300 hover:bg-slate-800 border border-emerald-500/30'
+            }`}
+            title="Tampilan Mockup Lantai 2 (Cutaway Terminal Utama, Terminal Eksisting & Terminal Selatan)"
+          >
+            <Layers className="w-3 h-3" />
+            <span>Mockup Lantai 2</span>
           </button>
 
           <button
@@ -317,47 +355,59 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                 ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Tampilkan / Sembunyikan Referensi Layout Masterplan Sultan Hasanuddin Makassar"
+            title="Tampilkan / Sembunyikan Referensi Speaker 3D Pixar & Denah WAAA"
           >
             <MapIcon className="w-3 h-3" />
-            <span>Denah WAAA</span>
+            <span>Referensi WAAA</span>
           </button>
         </div>
 
         {/* Active Focus Banner with Quick Return to All Terminals */}
-        {(activeZoneObj || activePreset !== 'overview') && (
+        {(activeZoneObj || activePreset !== 'overview' || speakerCategoryFilter !== 'all') && (
           <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-900/95 border border-sky-500/40 shadow-lg text-xs text-slate-100 backdrop-blur-md">
             <div className="flex items-center gap-1.5">
               <Focus className="w-3.5 h-3.5 text-sky-400" />
-              <span className="font-mono text-[11px] text-slate-400">Fokus Kamera:</span>
+              <span className="font-mono text-[11px] text-slate-400">Fokus:</span>
               <span className="font-bold text-sky-300">
                 {activeZoneObj
                   ? `${activeZoneObj.code} — ${activeZoneObj.name}`
+                  : activePreset === 'lantai1'
+                  ? 'Mockup Lantai 1 (Terminal Utama, Eksisting & Selatan — Klaim Bagasi & BHS)'
+                  : activePreset === 'lantai2'
+                  ? 'Mockup Lantai 2 (Terminal Utama, Eksisting & Selatan)'
                   : activePreset === 'curbside'
                   ? 'Tampilan Depan Terminal Utama & Jalanan'
                   : activePreset === 'tower'
                   ? 'Menara ATC Sultan Hasanuddin (WAAA)'
                   : 'Kompleks Terminal Sultan Hasanuddin'}
               </span>
+              {speakerCategoryFilter !== 'all' && (
+                <span className="ml-1 px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-200 font-mono text-[10px]">
+                  Filter: {speakerCategoryFilter.toUpperCase()} SPEAKER
+                </span>
+              )}
             </div>
             <button
-              onClick={() => handleSelectPreset('overview')}
+              onClick={() => {
+                handleSelectPreset('overview');
+                handleSelectSpeakerCategory('all');
+              }}
               className="flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[11px] transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Kembali ke Semua Terminal</span>
+              <span>Reset Tampilan</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Floating Reference Masterplan Picture-in-Picture Card */}
+      {/* Floating Reference Masterplan & 3D Pixar Speaker Picture-in-Picture Card */}
       {showMasterplanPip && (
         <div className="absolute top-20 right-4 z-30 w-80 sm:w-96 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl overflow-hidden backdrop-blur-md">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 bg-slate-950/70">
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
               <MapIcon className="w-3.5 h-3.5 text-amber-400" />
-              <span>Referensi Visual WAAA</span>
+              <span>Referensi Visual & Perangkat Akustik WAAA</span>
             </div>
             <button
               onClick={() => setShowMasterplanPip(false)}
@@ -368,6 +418,36 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </div>
           <div className="flex border-b border-slate-800 bg-slate-900 text-[11px] font-medium">
             <button
+              onClick={() => setPipTab('speaker')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'speaker'
+                  ? 'bg-sky-500/20 text-sky-300 border-b-2 border-sky-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Speaker
+            </button>
+            <button
+              onClick={() => setPipTab('lantai1')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'lantai1'
+                  ? 'bg-amber-500/20 text-amber-300 border-b-2 border-amber-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Lantai 1
+            </button>
+            <button
+              onClick={() => setPipTab('lantai2')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'lantai2'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-b-2 border-emerald-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Lantai 2
+            </button>
+            <button
               onClick={() => setPipTab('parkir')}
               className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
                 pipTab === 'parkir'
@@ -375,41 +455,44 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Gedung Parkir & Jalanan
+              Parkir
             </button>
             <button
               onClick={() => setPipTab('masterplan')}
               className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
                 pipTab === 'masterplan'
-                  ? 'bg-sky-500/20 text-sky-300 border-b-2 border-sky-400'
+                  ? 'bg-indigo-500/20 text-indigo-300 border-b-2 border-indigo-400'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Masterplan Terminal
+              Masterplan
             </button>
           </div>
           <div className="p-2 bg-slate-950">
             <img
               src={
-                pipTab === 'parkir'
+                pipTab === 'speaker'
+                  ? '/assets/aistudio/image_58915406.png'
+                  : pipTab === 'lantai1'
+                  ? '/assets/aistudio/image_6015f581.png'
+                  : pipTab === 'lantai2'
+                  ? '/assets/aistudio/Tanpa_judul__920_x_197_mm___1__606ea6fe.png'
+                  : pipTab === 'parkir'
                   ? '/assets/aistudio/Terminal_Selatan__1__b9bc7e87.png'
                   : '/assets/aistudio/1_47a27264.png'
               }
               alt="Referensi Bandara Sultan Hasanuddin Makassar"
               className="w-full h-auto max-h-72 rounded-lg border border-slate-800 object-contain bg-slate-900"
             />
-            <div className="mt-2 grid grid-cols-2 gap-1 text-[10px] font-mono text-slate-300">
+            <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] font-mono text-slate-300">
               <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
-                <span className="text-sky-400 font-bold">●</span> Terminal Utama
+                <span className="text-sky-400 font-bold">●</span> Ceiling ({ceilingCount})
               </div>
               <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
-                <span className="text-emerald-400 font-bold">●</span> Terminal Eksisting
+                <span className="text-emerald-400 font-bold">●</span> Column ({columnCount})
               </div>
               <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
-                <span className="text-indigo-400 font-bold">●</span> Terminal Selatan
-              </div>
-              <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
-                <span className="text-amber-400 font-bold">●</span> Gedung Parkir
+                <span className="text-amber-400 font-bold">●</span> Horn ({hornCount})
               </div>
             </div>
           </div>
@@ -436,26 +519,101 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         </div>
       </div>
 
-      {/* Floating Legend for Speaker Status */}
-      <div className="absolute bottom-28 left-4 z-20 hidden md:flex flex-col gap-1.5 p-2.5 rounded-lg bg-slate-900/85 border border-slate-800 text-[11px] font-mono text-slate-300 select-none">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-          Status IP Speaker (WAAA / MKS)
+      {/* Floating Legend for 3D Pixar Speaker Categories & Status */}
+      <div className="absolute bottom-28 left-4 z-20 hidden md:flex flex-col gap-2 w-72 p-3 rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xl text-[11px] font-mono text-slate-300 select-none backdrop-blur-md">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Kategori Speaker 3D Pixar</span>
+          </div>
+          {speakerCategoryFilter !== 'all' && (
+            <button
+              onClick={() => handleSelectSpeakerCategory('all')}
+              className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+            >
+              Semua ({speakers.length})
+            </button>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          <span>Online / Normal (52 Unit)</span>
+
+        {/* Interactive Category Buttons */}
+        <div className="flex flex-col gap-1.5">
+          <button
+            onClick={() => handleSelectSpeakerCategory('ceiling')}
+            className={`text-left p-2 rounded-lg border transition-all cursor-pointer ${
+              speakerCategoryFilter === 'ceiling'
+                ? 'bg-sky-500/20 border-sky-400 text-white shadow-sm'
+                : 'bg-slate-950/70 border-slate-800/90 hover:border-sky-500/40 text-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between font-bold text-sky-300">
+              <span>◎ Ceiling Speaker</span>
+              <span className="px-1.5 py-0.2 rounded bg-sky-500/20 text-[10px]">
+                {ceilingCount} Unit
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-sans leading-tight mt-0.5">
+              Plafon terminal (Ruang Tunggu, Check-in, Bagasi)
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleSelectSpeakerCategory('column')}
+            className={`text-left p-2 rounded-lg border transition-all cursor-pointer ${
+              speakerCategoryFilter === 'column'
+                ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-sm'
+                : 'bg-slate-950/70 border-slate-800/90 hover:border-emerald-500/40 text-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between font-bold text-emerald-300">
+              <span>▮ Column Speaker</span>
+              <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-[10px]">
+                {columnCount} Unit
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-sans leading-tight mt-0.5">
+              Dinding pilar & koridor (Jangkauan horizontal jauh)
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleSelectSpeakerCategory('horn')}
+            className={`text-left p-2 rounded-lg border transition-all cursor-pointer ${
+              speakerCategoryFilter === 'horn'
+                ? 'bg-amber-500/20 border-amber-400 text-white shadow-sm'
+                : 'bg-slate-950/70 border-slate-800/90 hover:border-amber-500/40 text-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between font-bold text-amber-300">
+              <span>◁ Horn Speaker</span>
+              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-[10px]">
+                {hornCount} Unit
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 font-sans leading-tight mt-0.5">
+              Area bising & terbuka luar ruangan (Apron / Drop-off)
+            </div>
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />
-          <span>Menyiarkan Audio</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          <span>Pilot Tone Fault</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <span>Evakuasi Darurat (EN54)</span>
+
+        {/* Status Indicator Row */}
+        <div className="pt-1.5 border-t border-slate-800 grid grid-cols-2 gap-1 text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Online ({speakers.length})</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+            <span>Menyiarkan</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>Pilot Fault</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span>Darurat EN54</span>
+          </div>
         </div>
       </div>
     </div>

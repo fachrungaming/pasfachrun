@@ -113,12 +113,17 @@ export interface SubZone {
 
 export type SpeakerStatus = 'online' | 'broadcasting' | 'pilot_fault' | 'offline' | 'emergency';
 
+export type SpeakerCategory = 'ceiling' | 'column' | 'horn';
+
 export interface IPSpeaker {
   id: string;
   name: string;
   macroZoneId: ZoneId;
   subZoneId: string;
   position: [number, number, number]; // 3D coordinates
+  category?: SpeakerCategory; // 'ceiling' | 'column' | 'horn'
+  mountLocation?: string; // Plafon, Dinding Pilar/Koridor, atau Area Bising Terbuka (Apron/Drop-off)
+  rotationY?: number; // Arah hadap horizontal (radian)
   ipAddress: string;
   macAddress: string;
   poeClass: 'PoE+ (30W)' | 'PoE++ (60W)';

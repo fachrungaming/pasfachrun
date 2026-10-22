@@ -13,12 +13,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { MacroZone, IPSpeaker, ZoneId } from '../types/pa-system';
+import { MacroZone, IPSpeaker, ZoneId, SpeakerCategory } from '../types/pa-system';
 import { EmergencyScenario } from '../types/simulation';
 
 export type VisualizerMode = 'bim_normal' | 'stipa_heatmap' | 'spl_noise' | 'cable_rstp';
 export type CameraPresetType =
   | 'overview'
+  | 'lantai1'
+  | 'lantai2'
   | 'utama'
   | 'curbside'
   | 'eksisting'
@@ -48,24 +50,25 @@ interface GateDefinition {
   isWideBody?: boolean;
   liveryColor?: number;
   tailColor?: number;
+  hasTwinArm?: boolean;
 }
 
 const SULTAN_HASANUDDIN_GATES: GateDefinition[] = [
-  // Terminal Selatan Curved Fan Rotunda (Gates 01 - 04 radial around center X=-52, Z=7)
-  { gateNumber: '01', rootX: -64.5, rootZ: 2.5, angleRad: -Math.PI * 0.62, length: 10.5, hasAircraft: false, isWideBody: true, liveryColor: 0x0284c7, tailColor: 0x0369a1 },
-  { gateNumber: '02', rootX: -65.5, rootZ: 8.5, angleRad: -Math.PI * 0.42, length: 10.5, hasAircraft: false, isWideBody: false, liveryColor: 0xef4444, tailColor: 0xdc2626 },
-  { gateNumber: '03', rootX: -61.5, rootZ: 15.5, angleRad: -Math.PI * 0.22, length: 10.5, hasAircraft: false, isWideBody: false, liveryColor: 0x10b981, tailColor: 0x059669 },
-  { gateNumber: '04', rootX: -52.0, rootZ: 17.5, angleRad: -Math.PI * 0.06, length: 10.0, hasAircraft: false, liveryColor: 0xf59e0b, tailColor: 0xd97706 },
+  // Terminal Selatan Curved Quarter-Circle Pier (Gates 01 - 04 radiating along outer arc around center X=-42, Z=-16, R=32)
+  { gateNumber: '01', rootX: -71.2, rootZ: -3.2, angleRad: -1.16, length: 11.5, hasAircraft: false, isWideBody: true, liveryColor: 0x0284c7, tailColor: 0x0369a1, hasTwinArm: false },
+  { gateNumber: '02', rootX: -64.8, rootZ: 6.4, angleRad: -0.80, length: 11.0, hasAircraft: false, isWideBody: false, liveryColor: 0xef4444, tailColor: 0xdc2626 },
+  { gateNumber: '03', rootX: -55.4, rootZ: 13.0, angleRad: -0.44, length: 10.5, hasAircraft: false, isWideBody: false, liveryColor: 0x10b981, tailColor: 0x059669 },
+  { gateNumber: '04', rootX: -46.8, rootZ: 15.6, angleRad: -0.16, length: 10.5, hasAircraft: false, liveryColor: 0xf59e0b, tailColor: 0xd97706 },
   // Terminal Selatan Straight Concourse (Gates 05 - 06)
-  { gateNumber: '05', rootX: -32.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: false, liveryColor: 0xe11d48, tailColor: 0xbe123c },
-  { gateNumber: '06', rootX: -20.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: false, liveryColor: 0x0284c7, tailColor: 0x0369a1 },
-  // Terminal Eksisting Concourse (Gates 07 - 12)
-  { gateNumber: '07', rootX: -6.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: false, liveryColor: 0x6366f1, tailColor: 0x4f46e5 },
-  { gateNumber: '08', rootX: 6.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: false, liveryColor: 0x7c3aed, tailColor: 0x6d28d9 },
-  { gateNumber: '09', rootX: 18.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: true, liveryColor: 0x0ea5e9, tailColor: 0x0284c7 },
-  { gateNumber: '10', rootX: 30.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: false, liveryColor: 0x16a34a, tailColor: 0x15803d },
-  { gateNumber: '11', rootX: 42.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: true, isWideBody: true, liveryColor: 0xf59e0b, tailColor: 0xb45309 },
-  { gateNumber: '12', rootX: 54.0, rootZ: 16.0, angleRad: 0, length: 10.0, hasAircraft: false, liveryColor: 0xec4899, tailColor: 0xdb2777 },
+  { gateNumber: '05', rootX: -33.5, rootZ: 16.0, angleRad: -0.05, length: 10.5, hasAircraft: true, isWideBody: false, liveryColor: 0xe11d48, tailColor: 0xbe123c },
+  { gateNumber: '06', rootX: -20.5, rootZ: 16.0, angleRad: -0.02, length: 10.5, hasAircraft: true, isWideBody: false, liveryColor: 0x0284c7, tailColor: 0x0369a1 },
+  // Terminal Eksisting Concourse (Gates 07 - 12 angled parallel as in Lantai 2 architectural plan)
+  { gateNumber: '07', rootX: -6.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: false, liveryColor: 0x6366f1, tailColor: 0x4f46e5 },
+  { gateNumber: '08', rootX: 6.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: true, isWideBody: false, liveryColor: 0x7c3aed, tailColor: 0x6d28d9 },
+  { gateNumber: '09', rootX: 18.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: true, isWideBody: true, liveryColor: 0x0ea5e9, tailColor: 0x0284c7 },
+  { gateNumber: '10', rootX: 30.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: true, isWideBody: false, liveryColor: 0x16a34a, tailColor: 0x15803d },
+  { gateNumber: '11', rootX: 42.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: true, isWideBody: true, liveryColor: 0xf59e0b, tailColor: 0xb45309 },
+  { gateNumber: '12', rootX: 54.0, rootZ: 16.0, angleRad: -0.32, length: 10.8, hasAircraft: false, liveryColor: 0xec4899, tailColor: 0xdb2777 },
 ];
 
 export class AirportSceneManager {
@@ -90,6 +93,12 @@ export class AirportSceneManager {
   private evacuationPathGroup: THREE.Group = new THREE.Group();
   private heatmapMesh: THREE.Mesh | null = null;
   private radarDome: THREE.Mesh | null = null;
+  private upperRoofMeshes: THREE.Object3D[] = [];
+  private lantai2Meshes: THREE.Object3D[] = [];
+  private isLantai1Cutaway: boolean = false;
+  private isLantai2Cutaway: boolean = false;
+  private activeCategoryFilter: SpeakerCategory | 'all' = 'all';
+  private speakerBadgeTextures: Map<SpeakerCategory, THREE.CanvasTexture> = new Map();
 
   // Theme & Lighting References
   private tarmacMat: THREE.MeshStandardMaterial | null = null;
@@ -388,22 +397,142 @@ export class AirportSceneManager {
   }
 
   /**
+   * Helper to create a curved ring-sector shape in X-Y plane (to be extruded and rotated into X-Z plane)
+   */
+  private createArcSectorShape(
+    innerR: number,
+    outerR: number,
+    startAngle: number,
+    endAngle: number,
+    segments: number = 32
+  ): THREE.Shape {
+    const shape = new THREE.Shape();
+    for (let i = 0; i <= segments; i++) {
+      const a = startAngle + (i / segments) * (endAngle - startAngle);
+      const x = Math.cos(a) * outerR;
+      const y = Math.sin(a) * outerR;
+      if (i === 0) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    }
+    for (let i = segments; i >= 0; i--) {
+      const a = startAngle + (i / segments) * (endAngle - startAngle);
+      const x = Math.cos(a) * innerR;
+      const y = Math.sin(a) * innerR;
+      shape.lineTo(x, y);
+    }
+    shape.closePath();
+    return shape;
+  }
+
+  /**
+   * Generates a subtle warm cream-white diamond ceramic tile texture for Lantai 1 (matching image_6015f581.png)
+   */
+  private createLantai1TileTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#f8f5f0';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.strokeStyle = '#e6e0d6';
+    ctx.lineWidth = 2;
+    const step = 32;
+    for (let i = -256; i <= 512; i += step) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + 256, 256);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(i, 256);
+      ctx.lineTo(i + 256, 0);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(24, 14);
+    return tex;
+  }
+
+  /**
    * Builds the 3 Distinct Terminal Buildings of Sultan Hasanuddin Makassar (WAAA)
-   * + 12 Garbarata (Jet Bridges) & Apron Interactive Zone
+   * with:
+   * - Full Lantai 1 (Y = 0.4m) 3D Architectural Floor Plan Mockup (Baggage Claim 9 Carousels, BHS Hall, Left & Right Wings)
+   * - Full Lantai 2 (Y = 4.6m) 3D Architectural Floor Plan Mockup
+   * - Solid Opaque Sweeping Phinisi Wave & Vaulted Roofs for "Semua Terminal" view
+   * - Clean 12 Garbarata (Jet Bridges) with fixed single-arm Gate 01
    */
   private buildTerminalBuildings() {
     const terminalGroup = new THREE.Group();
+    this.upperRoofMeshes = [];
+    this.lantai2Meshes = [];
 
     const slabMat = new THREE.MeshStandardMaterial({
       color: 0xcbd5e1,
       roughness: 0.55,
       metalness: 0.2,
     });
-    const roofShellMat = new THREE.MeshPhysicalMaterial({
-      color: 0xe2e8f0, // Bright metallic white-silver Phinisi roof
-      metalness: 0.55,
+    const whiteFloorMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.38,
+      metalness: 0.08,
+    });
+    const l1TileFloorMat = new THREE.MeshStandardMaterial({
+      map: this.createLantai1TileTexture(),
+      roughness: 0.36,
+      metalness: 0.06,
+    });
+    const bhsDarkFloorMat = new THREE.MeshStandardMaterial({
+      color: 0x4b5563,
+      roughness: 0.72,
+      metalness: 0.12,
+    });
+    const darkFloorMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.62,
+      metalness: 0.12,
+    });
+    const selatanCarpetMat = new THREE.MeshStandardMaterial({
+      color: 0x2c3844,
+      roughness: 0.65,
+      metalness: 0.1,
+    });
+    const partitionWallMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.32,
+      metalness: 0.08,
+    });
+    const wallCapMat = new THREE.MeshStandardMaterial({
+      color: 0xd1d5db,
+      roughness: 0.38,
+      metalness: 0.18,
+    });
+    const greenNodeMat = new THREE.MeshStandardMaterial({
+      color: 0x22c55e,
+      emissive: 0x16a34a,
+      emissiveIntensity: 0.65,
       roughness: 0.25,
-      clearcoat: 0.5,
+    });
+    // Solid opaque metallic white-silver Phinisi roof (100% visible when "Semua Terminal" is active, hidden in Lantai 1/2 cutaway)
+    const roofShellMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe2e8f0,
+      metalness: 0.36,
+      roughness: 0.24,
+      clearcoat: 0.55,
+      clearcoatRoughness: 0.18,
+      transparent: false,
+      opacity: 1.0,
+      depthWrite: true,
+    });
+    const roofBronzeFasciaMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      metalness: 0.65,
+      roughness: 0.32,
     });
     const roofAccentMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
@@ -413,20 +542,429 @@ export class AirportSceneManager {
     const curtainGlassMat = new THREE.MeshPhysicalMaterial({
       color: 0x7dd3fc,
       transmission: 0.82,
-      opacity: 0.38,
+      opacity: 0.32,
       transparent: true,
       roughness: 0.08,
       metalness: 0.15,
       ior: 1.5,
+      depthWrite: false,
     });
+
+    // Helper to add a 3D architectural partition wall on Lantai 2 (Y = 4.65m) and register in lantai2Meshes
+    const addL2Wall = (
+      parent: THREE.Group,
+      cx: number,
+      cz: number,
+      w: number,
+      d: number,
+      h: number = 2.45,
+      rotY: number = 0
+    ) => {
+      const wallGroup = new THREE.Group();
+      wallGroup.position.set(cx, 4.65 + h / 2, cz);
+      wallGroup.rotation.y = rotY;
+
+      const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), partitionWallMat);
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
+      wallGroup.add(wallMesh);
+
+      const capMesh = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.12, d + 0.06), wallCapMat);
+      capMesh.position.y = h / 2 + 0.06;
+      wallGroup.add(capMesh);
+
+      parent.add(wallGroup);
+      this.lantai2Meshes.push(wallGroup);
+    };
+
+    // Helper to add a 3D white cylindrical structural column on Lantai 2
+    const addL2Column = (parent: THREE.Group, x: number, z: number, h: number = 2.65) => {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.38, h, 16), partitionWallMat);
+      col.position.set(x, 4.65 + h / 2, z);
+      col.castShadow = true;
+      col.receiveShadow = true;
+      parent.add(col);
+      this.lantai2Meshes.push(col);
+    };
+
+    // Helper to add a green PA zone indicator dot on Lantai 2 (matching reference diagram)
+    const addL2GreenNode = (parent: THREE.Group, x: number, z: number) => {
+      const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.28, 14), greenNodeMat);
+      dot.position.set(x, 4.82, z);
+      parent.add(dot);
+      this.lantai2Meshes.push(dot);
+    };
+
+    // Helper to add a 3D architectural partition wall on Lantai 1 (Y = 0.62m)
+    const addL1Wall = (
+      parent: THREE.Group,
+      cx: number,
+      cz: number,
+      w: number,
+      d: number,
+      h: number = 2.35,
+      rotY: number = 0
+    ) => {
+      const wallGroup = new THREE.Group();
+      wallGroup.position.set(cx, 0.62 + h / 2, cz);
+      wallGroup.rotation.y = rotY;
+
+      const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), partitionWallMat);
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
+      wallGroup.add(wallMesh);
+
+      const capMesh = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.1, d + 0.05), wallCapMat);
+      capMesh.position.y = h / 2 + 0.05;
+      wallGroup.add(capMesh);
+
+      parent.add(wallGroup);
+    };
+
+    // Helper to add a 3D white square structural column on Lantai 1 (matching square pillars in image_6015f581.png)
+    const addL1SquareColumn = (
+      parent: THREE.Group,
+      x: number,
+      z: number,
+      size: number = 0.56,
+      h: number = 2.55
+    ) => {
+      const col = new THREE.Mesh(new THREE.BoxGeometry(size, h, size), partitionWallMat);
+      col.position.set(x, 0.62 + h / 2, z);
+      col.castShadow = true;
+      col.receiveShadow = true;
+      parent.add(col);
+    };
+
+    // Helper to build a 3D Baggage Claim Carousel (Conveyor Sabuk Bagasi Hitam dengan Lis Putih)
+    // matching the 9 carousels in image_6015f581.png
+    const beltRubberMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.55,
+      metalness: 0.15,
+    });
+    const beltRimMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.28,
+      metalness: 0.25,
+    });
+
+    const addL1BaggageCarousel = (
+      parent: THREE.Group,
+      cx: number,
+      variant: 'L_left' | 'T_loop' | 'L_right',
+      hasGreenDomeBadge: boolean = false
+    ) => {
+      const cGroup = new THREE.Group();
+      cGroup.position.set(cx, 0.64, 0);
+
+      // Main North-South conveyor leg extending from rear BHS wall (Z = -12.2) to Z = -19.6
+      const legLen = 7.4;
+      const legZ = -15.9;
+      const legRim = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.36, legLen + 0.3), beltRimMat);
+      legRim.position.set(0, 0.18, legZ);
+      legRim.castShadow = true;
+      legRim.receiveShadow = true;
+      cGroup.add(legRim);
+
+      const legBelt = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.42, legLen - 0.15), beltRubberMat);
+      legBelt.position.set(0, 0.21, legZ);
+      cGroup.add(legBelt);
+
+      // Rounded Southern Tip of the Carousel at Z = -19.6
+      const tipRim = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.88, 0.36, 20), beltRimMat);
+      tipRim.position.set(0, 0.18, -19.6);
+      cGroup.add(tipRim);
+      const tipBelt = new THREE.Mesh(new THREE.CylinderGeometry(0.59, 0.59, 0.42, 20), beltRubberMat);
+      tipBelt.position.set(0, 0.21, -19.6);
+      cGroup.add(tipBelt);
+
+      // Upper horizontal bar along the BHS partition wall (Z = -12.6) forming the L or T shape
+      const headW = variant === 'T_loop' ? 4.8 : 3.6;
+      const headOffsetX =
+        variant === 'L_left' ? -1.0 : variant === 'L_right' ? 1.0 : 0;
+
+      const headRim = new THREE.Mesh(new THREE.BoxGeometry(headW, 0.36, 1.45), beltRimMat);
+      headRim.position.set(headOffsetX, 0.18, -12.6);
+      headRim.castShadow = true;
+      cGroup.add(headRim);
+
+      const headBelt = new THREE.Mesh(new THREE.BoxGeometry(headW - 0.45, 0.42, 0.95), beltRubberMat);
+      headBelt.position.set(headOffsetX, 0.21, -12.6);
+      cGroup.add(headBelt);
+
+      // Pass-through tunnel hatch on the BHS wall at Z = -12.0
+      const hatch = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.15, 0.52), beltRubberMat);
+      hatch.position.set(0, 0.65, -12.0);
+      cGroup.add(hatch);
+
+      // Structural square white columns flanking the carousel (as seen in image_6015f581.png)
+      addL1SquareColumn(cGroup, 1.65, -16.8, 0.52, 2.5);
+      addL1SquareColumn(cGroup, -1.55, -15.2, 0.48, 2.5);
+
+      // Optional Green Circular Dome Camera / Acoustic Sensor Badge (on Carousels 1 & 2 as in image_6015f581.png)
+      if (hasGreenDomeBadge) {
+        const badgeGroup = new THREE.Group();
+        badgeGroup.position.set(2.1, 0.5, -19.2);
+
+        const greenDisc = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.35, 1.35, 0.22, 24),
+          greenNodeMat
+        );
+        badgeGroup.add(greenDisc);
+
+        const whiteRing = new THREE.Mesh(
+          new THREE.RingGeometry(1.18, 1.35, 24),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+        );
+        whiteRing.rotation.x = -Math.PI / 2;
+        whiteRing.position.y = 0.12;
+        badgeGroup.add(whiteRing);
+
+        // 3D White Dome Housing & Dark Lens inside the Green Circle
+        const domeBase = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.75, 0.85, 0.35, 18),
+          beltRimMat
+        );
+        domeBase.position.y = 0.26;
+        badgeGroup.add(domeBase);
+
+        const domeSphere = new THREE.Mesh(
+          new THREE.SphereGeometry(0.68, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+          beltRimMat
+        );
+        domeSphere.position.y = 0.42;
+        badgeGroup.add(domeSphere);
+
+        const darkLens = new THREE.Mesh(
+          new THREE.SphereGeometry(0.32, 14, 14),
+          beltRubberMat
+        );
+        darkLens.position.set(0, 0.62, -0.35);
+        badgeGroup.add(darkLens);
+
+        cGroup.add(badgeGroup);
+      }
+
+      parent.add(cGroup);
+    };
+
+    // =========================================================================
+    // LANTAI 1 (Y = 0.4m) ARCHITECTURAL MOCKUP — TERMINAL UTAMA, EKSISTING & SELATAN
+    // Faithfully matches /public/assets/aistudio/image_6015f581.png
+    // =========================================================================
+    const lantai1Group = new THREE.Group();
+
+    // 1A. Lantai 1 Cream-White Diamond Tile Floor across Terminal Utama & Baggage Claim (X: -13 to +61, Z: -38 to -12)
+    const l1MainTileFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(74.0, 0.14, 26.2),
+      l1TileFloorMat
+    );
+    l1MainTileFloor.position.set(24.0, 0.56, -25.0);
+    l1MainTileFloor.receiveShadow = true;
+    lantai1Group.add(l1MainTileFloor);
+
+    // 1B. Front Landside Arrival Concourse Colonnade (2 Rows of 14 White Square Pillars along Z = -37.2 & Z = -32.6)
+    for (let px = -9.5; px <= 57.5; px += 5.15) {
+      addL1SquareColumn(lantai1Group, px, -37.2, 0.62, 2.55);
+      addL1SquareColumn(lantai1Group, px, -32.6, 0.56, 2.55);
+    }
+
+    // Two Central Enclosed Information / Ticketing Counter Islands in the Front Arrival Hall (Z = -32.6)
+    [16.5, 29.5].forEach((islandX) => {
+      addL1Wall(lantai1Group, islandX, -33.6, 6.2, 0.28, 1.85);
+      addL1Wall(lantai1Group, islandX, -31.6, 6.2, 0.28, 1.85);
+      addL1Wall(lantai1Group, islandX - 3.0, -32.6, 0.28, 2.1, 1.85);
+      addL1Wall(lantai1Group, islandX + 3.0, -32.6, 0.28, 2.1, 1.85);
+      addL1Wall(lantai1Group, islandX, -32.6, 0.24, 2.0, 1.85);
+    });
+
+    // Left (+X: 54..61) & Right (-X: -13..-6) Perimeter Flank Room Bays on Lantai 1
+    addL1Wall(lantai1Group, 60.8, -25.0, 0.42, 25.5, 2.45); // Far left outer wall
+    addL1Wall(lantai1Group, 54.2, -25.0, 0.35, 22.0, 2.35); // Left inner corridor wall
+    for (let rz = -35.0; rz <= -15.0; rz += 3.3) {
+      addL1Wall(lantai1Group, 57.5, rz, 6.6, 0.28, 2.35);
+    }
+
+    addL1Wall(lantai1Group, -12.8, -25.0, 0.42, 25.5, 2.45); // Far right outer wall
+    addL1Wall(lantai1Group, -6.2, -25.0, 0.35, 22.0, 2.35);  // Right inner corridor wall
+    for (let rz = -35.0; rz <= -15.0; rz += 3.3) {
+      addL1Wall(lantai1Group, -9.5, rz, 6.6, 0.28, 2.35);
+    }
+
+    // 1C. Middle-Front Partitioned Arrival Offices, Customs, VIP Suites & Restrooms Band (Z: -29.2 to -22.2)
+    addL1Wall(lantai1Group, 24.0, -29.2, 60.0, 0.36, 2.35); // Front wall of office band
+    addL1Wall(lantai1Group, 24.0, -25.6, 58.0, 0.32, 2.35); // Internal corridor spine wall
+    addL1Wall(lantai1Group, 24.0, -22.2, 60.0, 0.38, 2.35); // Wall separating offices from Baggage Claim Hall
+    for (let ox = -4.0; ox <= 52.0; ox += 4.6) {
+      addL1Wall(lantai1Group, ox, -27.4, 0.28, 3.5, 2.35);
+      if (Math.abs(ox - 23.6) > 3.0) {
+        addL1Wall(lantai1Group, ox + 1.2, -23.9, 0.28, 3.3, 2.35);
+      }
+    }
+
+    // 1D. Middle Baggage Claim Hall (Z: -22.2 to -12.0) — 9 Baggage Claim Carousels (Conveyor Sabuk Bagasi)
+    // Full-depth vertical partition wall at X = 36.8 separating Carousels 1 & 2 (Left/Intl) from Carousels 3–9
+    addL1Wall(lantai1Group, 36.8, -17.1, 0.38, 10.2, 2.40);
+    // Continuous rear BHS partition wall at Z = -12.0
+    addL1Wall(lantai1Group, 21.0, -12.0, 64.0, 0.42, 2.45);
+
+    // Build all 9 Baggage Claim Carousels from Left (+X) to Right (-X) matching image_6015f581.png
+    const carouselConfigs: { x: number; variant: 'L_left' | 'T_loop' | 'L_right'; greenDome: boolean }[] = [
+      { x: 48.6, variant: 'L_left',  greenDome: true },  // Carousel 1 (with green dome badge)
+      { x: 41.2, variant: 'L_left',  greenDome: true },  // Carousel 2 (with green dome badge)
+      { x: 31.8, variant: 'T_loop',  greenDome: false }, // Carousel 3 (T/U-shaped loop)
+      { x: 23.5, variant: 'T_loop',  greenDome: false }, // Carousel 4 (T/U-shaped loop)
+      { x: 15.6, variant: 'L_right', greenDome: false }, // Carousel 5
+      { x: 9.0,  variant: 'L_right', greenDome: false }, // Carousel 6
+      { x: 2.5,  variant: 'L_right', greenDome: false }, // Carousel 7
+      { x: -3.6, variant: 'L_right', greenDome: false }, // Carousel 8
+      { x: -9.2, variant: 'L_right', greenDome: false }, // Carousel 9
+    ];
+    carouselConfigs.forEach((cc) => {
+      addL1BaggageCarousel(lantai1Group, cc.x, cc.variant, cc.greenDome);
+    });
+
+    // Additional row of square white columns along Z = -20.8 in front of the carousels
+    for (let cx = -8.0; cx <= 50.0; cx += 5.8) {
+      addL1SquareColumn(lantai1Group, cx, -20.8, 0.50, 2.5);
+    }
+
+    // 1E. Top/Rear Dark-Grey BHS (Baggage Handling & Make-Up Hall, Z: -12.0 to +3.8)
+    // Spans behind the Baggage Claim wall into the ground floor of Terminal Eksisting
+    const bhsHallFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(63.0, 0.16, 15.8),
+      bhsDarkFloorMat
+    );
+    bhsHallFloor.position.set(21.0, 0.57, -4.1);
+    bhsHallFloor.receiveShadow = true;
+    lantai1Group.add(bhsHallFloor);
+
+    // Side walls framing the Dark-Grey BHS Hall (Left at X = +52.4, Right at X = -10.4)
+    addL1Wall(lantai1Group, 52.4, -4.1, 0.42, 15.8, 2.45);
+    addL1Wall(lantai1Group, -10.4, -4.1, 0.42, 15.8, 2.45);
+
+    // Regular 3-Row x 13-Column Grid of White Square Structural Columns inside the Dark-Grey BHS Hall
+    // + 4th Perimeter Row of 14 White Square Columns along the rear airside edge (Z = +3.6)
+    for (let bx = -7.5; bx <= 49.5; bx += 4.75) {
+      addL1SquareColumn(lantai1Group, bx, -9.2, 0.54, 2.55);
+      addL1SquareColumn(lantai1Group, bx, -4.8, 0.54, 2.55);
+      addL1SquareColumn(lantai1Group, bx, -0.4, 0.54, 2.55);
+      addL1SquareColumn(lantai1Group, bx, 3.6, 0.56, 2.55);
+    }
+
+    // 5 White-Walled BHS Control & Staging Room Enclosures inside the Dark-Grey Hall (matching image_6015f581.png)
+    const addBhsRoomBox = (rx: number, rz: number, rw: number, rd: number, subDivs: number = 1) => {
+      addL1Wall(lantai1Group, rx, rz - rd / 2, rw, 0.28, 2.25);
+      addL1Wall(lantai1Group, rx, rz + rd / 2, rw, 0.28, 2.25);
+      addL1Wall(lantai1Group, rx - rw / 2, rz, 0.28, rd, 2.25);
+      addL1Wall(lantai1Group, rx + rw / 2, rz, 0.28, rd, 2.25);
+      for (let s = 1; s < subDivs; s++) {
+        const divX = rx - rw / 2 + (rw / subDivs) * s;
+        addL1Wall(lantai1Group, divX, rz, 0.24, rd, 2.25);
+      }
+    };
+    addBhsRoomBox(46.8, -6.2, 3.2, 3.2, 1);  // 1. Far-left square BHS room
+    addBhsRoomBox(31.5, -6.4, 15.2, 3.0, 3); // 2. Left-center elongated multi-compartment BHS room
+    addBhsRoomBox(12.2, -6.4, 5.4, 3.2, 2);  // 3. Center-right partitioned BHS room
+    addBhsRoomBox(5.2, -6.6, 3.0, 3.6, 1);   // 4. Right-center rectangular BHS room
+    addBhsRoomBox(-3.8, -5.8, 3.2, 3.2, 1);  // 5. Far-right square BHS room
+
+    // Two Dark-Grey Airside Driveway Links (at X = +39.5 and X = +2.5, Z: +3.8 to +10.2)
+    // + Horizontal Airside Service Road Strip (X: -16 to +58, Z: +10.2 to +11.6)
+    // + Bright White Rectangular Courtyard Slab between them (matching top-center of image_6015f581.png)
+    [39.5, 2.5].forEach((linkX) => {
+      const linkDrive = new THREE.Mesh(
+        new THREE.BoxGeometry(3.2, 0.16, 6.6),
+        bhsDarkFloorMat
+      );
+      linkDrive.position.set(linkX, 0.57, 7.0);
+      lantai1Group.add(linkDrive);
+    });
+    const rearServiceStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(74.0, 0.16, 1.5),
+      bhsDarkFloorMat
+    );
+    rearServiceStrip.position.set(21.0, 0.57, 10.6);
+    lantai1Group.add(rearServiceStrip);
+
+    const centralWhiteCourtyard = new THREE.Mesh(
+      new THREE.BoxGeometry(33.8, 0.15, 6.0),
+      whiteFloorMat
+    );
+    centralWhiteCourtyard.position.set(21.0, 0.56, 6.8);
+    lantai1Group.add(centralWhiteCourtyard);
+
+    // 1F. Top-Left L-Wing Extension (Terminal Eksisting East Wing Lantai 1, X: +52.5 to +68, Z: -10 to +14.5)
+    const leftExtCorridorFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(7.5, 0.15, 22.0),
+      l1TileFloorMat
+    );
+    leftExtCorridorFloor.position.set(56.2, 0.56, -1.0);
+    lantai1Group.add(leftExtCorridorFloor);
+
+    const leftTopLWingFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(15.5, 0.15, 7.5),
+      l1TileFloorMat
+    );
+    leftTopLWingFloor.position.set(60.2, 0.56, 10.5);
+    lantai1Group.add(leftTopLWingFloor);
+
+    addL1Wall(lantai1Group, 59.8, -1.0, 0.38, 22.0, 2.40);
+    addL1Wall(lantai1Group, 60.2, 14.2, 15.5, 0.38, 2.40);
+    addL1Wall(lantai1Group, 67.8, 10.5, 0.38, 7.5, 2.40);
+    addL1Wall(lantai1Group, 60.2, 6.8, 15.5, 0.35, 2.35);
+    for (let lx = 55.0; lx <= 65.5; lx += 3.2) {
+      addL1Wall(lantai1Group, lx, 10.5, 0.28, 7.2, 2.30);
+    }
+
+    // 1G. Top-Right Long L-Shaped Corridor & Terminal Selatan Lantai 1 Extension (X: -10.5 to -64, Z: -10 to +15.5)
+    const rightFlankCorridorFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(6.8, 0.15, 22.0),
+      l1TileFloorMat
+    );
+    rightFlankCorridorFloor.position.set(-13.8, 0.56, -1.0);
+    lantai1Group.add(rightFlankCorridorFloor);
+
+    // Protruding Side Room Cluster on the Right Flank (X: -17.2 to -20.8, Z: -3.2 to +2.2)
+    const rightSideRoomFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.15, 5.6),
+      l1TileFloorMat
+    );
+    rightSideRoomFloor.position.set(-18.8, 0.56, -0.5);
+    lantai1Group.add(rightSideRoomFloor);
+    addBhsRoomBox(-18.8, -0.5, 4.0, 5.4, 2);
+
+    // Long Horizontal Walled Corridor extending across Terminal Selatan Lantai 1 (X: -14 to -63, Z: +6.8 to +11.2)
+    const rightLongCorridorFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(50.0, 0.15, 4.6),
+      l1TileFloorMat
+    );
+    rightLongCorridorFloor.position.set(-38.5, 0.56, 9.0);
+    lantai1Group.add(rightLongCorridorFloor);
+    addL1Wall(lantai1Group, -38.5, 6.7, 50.0, 0.38, 2.40);
+    addL1Wall(lantai1Group, -38.5, 11.3, 50.0, 0.38, 2.40);
+
+    // Upward L-Turn at the Far-Right End of the Corridor (X: -59.5 to -63.8, Z: +6.8 to +15.6)
+    const rightTipFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(4.6, 0.15, 8.8),
+      l1TileFloorMat
+    );
+    rightTipFloor.position.set(-61.5, 0.56, 11.2);
+    lantai1Group.add(rightTipFloor);
+    addL1Wall(lantai1Group, -63.8, 11.2, 0.38, 8.8, 2.40);
+    addL1Wall(lantai1Group, -59.2, 13.4, 0.38, 4.4, 2.40);
+    addL1Wall(lantai1Group, -61.5, 15.6, 4.6, 0.38, 2.40);
+
+    terminalGroup.add(lantai1Group);
 
     // =========================================================================
     // 1. TERMINAL UTAMA — Macro Zone 1
-    // Located at X: -6 to +54 (W=60), Z: -38 to -12 (D=26), H=14.8m (3 floors)
+    // Main footprint: X: -6 to +54 (W=60), Z: -38 to -12 (D=26), plus T-wing side extensions
     // Floor elevations:
-    // - Lantai 1: Y = 0.4m (Kedatangan / Ground)
-    // - Lantai 2: Y = 4.6m (Terhubung dengan Jembatan Penghubung dari Gedung Parkir)
-    // - Lantai 3: Y = 9.6m (Keberangkatan — Sejajar & Terhubung langsung dengan Jalanan)
+    // - Lantai 1: Y = 0.4m (Kedatangan / Ground — Mockup Lantai 1)
+    // - Lantai 2: Y = 4.6m (Mockup Lantai 2 + Terhubung Jembatan Penghubung Gedung Parkir & Eksisting)
+    // - Lantai 3: Y = 9.6m (Curbside Drop-Off Keberangkatan — Terhubung langsung dengan Jalanan)
     // =========================================================================
     const utamaGroup = new THREE.Group();
     const utamaX = 24;
@@ -451,15 +989,133 @@ export class AirportSceneManager {
       roughness: 0.26,
     });
 
-    // 3 Floor Slabs: Lantai 1 (Y=0.4m), Lantai 2 (Y=4.6m), Lantai 3 (Y=9.6m)
-    const floorElevations = [0.4, 4.6, 9.6];
-    floorElevations.forEach((flY) => {
-      const slabGeo = new THREE.BoxGeometry(utamaW, 0.42, utamaD);
-      const slab = new THREE.Mesh(slabGeo, slabMat);
-      slab.position.set(utamaX, flY, utamaZ);
-      slab.receiveShadow = true;
-      utamaGroup.add(slab);
+    // Lantai 1 & Lantai 2 Structural Base Slabs (including Left +X and Right -X T-Wing Extensions)
+    [0.4, 4.6].forEach((flY) => {
+      const mainSlab = new THREE.Mesh(new THREE.BoxGeometry(utamaW, 0.42, utamaD), slabMat);
+      mainSlab.position.set(utamaX, flY, utamaZ);
+      mainSlab.receiveShadow = true;
+      utamaGroup.add(mainSlab);
+
+      // Left Wing Extension (+X: 54 to 61, Z: -34 to -16) matching T-wing in Lantai 2 diagram
+      const leftWingSlab = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.42, 18), slabMat);
+      leftWingSlab.position.set(57.5, flY, -25);
+      leftWingSlab.receiveShadow = true;
+      utamaGroup.add(leftWingSlab);
+
+      // Right Wing Extension (-X: -13 to -6, Z: -34 to -16)
+      const rightWingSlab = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.42, 18), slabMat);
+      rightWingSlab.position.set(-9.5, flY, -25);
+      rightWingSlab.receiveShadow = true;
+      utamaGroup.add(rightWingSlab);
+
+      if (flY > 2.0) {
+        this.lantai2Meshes.push(mainSlab, leftWingSlab, rightWingSlab);
+      }
     });
+
+    // Lantai 3 Interior Slab (registered in upperRoofMeshes so Lantai 2 Mockup is visible below)
+    const lt3InteriorSlab = new THREE.Mesh(
+      new THREE.BoxGeometry(utamaW, 0.35, utamaD),
+      roofShellMat
+    );
+    lt3InteriorSlab.position.set(utamaX, 9.6, utamaZ);
+    utamaGroup.add(lt3InteriorSlab);
+    this.upperRoofMeshes.push(lt3InteriorSlab);
+
+    // -------------------------------------------------------------------------
+    // LANTAI 2 (Y = 4.6m) ARCHITECTURAL MOCKUP — TERMINAL UTAMA
+    // Matches the 2-tone floor (White front/right hall + Dark charcoal rear/left hall),
+    // side wing cubicles, column grid, central void walls, and twin connector bridges
+    // -------------------------------------------------------------------------
+    // White Ceramic Floor Zone on Lantai 2 (Front Concourse Z: -37.8 to -25 & Right Concourse X: -12.8 to +20)
+    const uWhiteFrontFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(73.6, 0.12, 12.8),
+      whiteFloorMat
+    );
+    uWhiteFrontFloor.position.set(24, 4.82, -31.4);
+    uWhiteFrontFloor.receiveShadow = true;
+    utamaGroup.add(uWhiteFrontFloor);
+    this.lantai2Meshes.push(uWhiteFrontFloor);
+
+    const uWhiteRightFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(32.5, 0.12, 13.2),
+      whiteFloorMat
+    );
+    uWhiteRightFloor.position.set(3.5, 4.82, -18.6);
+    uWhiteRightFloor.receiveShadow = true;
+    utamaGroup.add(uWhiteRightFloor);
+    this.lantai2Meshes.push(uWhiteRightFloor);
+
+    // Dark Charcoal / Slate Floor Zone on Lantai 2 (Rear-Left & Central Hall X: +14 to +54, Z: -26 to -12)
+    const uDarkRearFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(41.5, 0.14, 14.0),
+      darkFloorMat
+    );
+    uDarkRearFloor.position.set(34.5, 4.83, -19.0);
+    uDarkRearFloor.receiveShadow = true;
+    utamaGroup.add(uDarkRearFloor);
+    this.lantai2Meshes.push(uDarkRearFloor);
+
+    // Perimeter 3D White Walls of Terminal Utama Lantai 2
+    addL2Wall(utamaGroup, 24, -37.8, 60.2, 0.42, 2.45); // Front landside wall (Z = -37.8)
+    addL2Wall(utamaGroup, 23, -12.2, 35.5, 0.42, 2.45); // Rear wall between Connector Bridges (X = 5 to 41)
+    addL2Wall(utamaGroup, 52.5, -12.2, 3.5, 0.42, 2.45); // Rear-left corner wall
+    addL2Wall(utamaGroup, -5.2, -12.2, 2.2, 0.42, 2.45); // Rear-right corner wall
+
+    // Left Wing (+X = 54 to 61) Perimeter & 6 Partitioned Office/VIP Rooms
+    addL2Wall(utamaGroup, 60.9, -25.0, 0.42, 18.0, 2.45); // Far left outer wall
+    addL2Wall(utamaGroup, 57.4, -34.0, 7.2, 0.42, 2.45);  // Left wing front wall
+    addL2Wall(utamaGroup, 57.4, -16.0, 7.2, 0.42, 2.45);  // Left wing rear wall
+    addL2Wall(utamaGroup, 53.8, -25.0, 0.35, 16.5, 2.45); // Left wing inner corridor wall
+    for (let rz = -31.0; rz <= -19.0; rz += 3.0) {
+      addL2Wall(utamaGroup, 57.4, rz, 7.0, 0.3, 2.45);    // 5 cross partitions forming 6 rooms
+    }
+
+    // Right Wing (-X = -13 to -6) Perimeter & 5 Partitioned Rooms + Stepped Walls
+    addL2Wall(utamaGroup, -12.9, -25.0, 0.42, 18.0, 2.45); // Far right outer wall
+    addL2Wall(utamaGroup, -9.4, -34.0, 7.2, 0.42, 2.45);   // Right wing front wall
+    addL2Wall(utamaGroup, -9.4, -16.0, 7.2, 0.42, 2.45);   // Right wing rear wall
+    addL2Wall(utamaGroup, -5.8, -25.0, 0.35, 16.5, 2.45);  // Right wing inner corridor wall
+    for (let rz = -30.5; rz <= -19.5; rz += 3.6) {
+      addL2Wall(utamaGroup, -9.4, rz, 7.0, 0.3, 2.45);
+    }
+
+    // Central Mezzanine Void Enclosures, Curved/Angled Partition Walls & Check-In / SCP Islands on Lantai 2
+    // Central rectangular void/atrium rooms (X: 16 to 34, Z: -27 to -20)
+    addL2Wall(utamaGroup, 25.0, -26.8, 18.0, 0.38, 2.45);
+    addL2Wall(utamaGroup, 25.0, -20.2, 16.0, 0.38, 2.45);
+    addL2Wall(utamaGroup, 16.2, -23.5, 0.38, 6.8, 2.45);
+    addL2Wall(utamaGroup, 33.8, -23.5, 0.38, 6.8, 2.45);
+    addL2Wall(utamaGroup, 25.0, -23.5, 0.32, 6.6, 2.45);
+
+    // Angled / curved transition partition walls on left-center (X: 38 to 49, Z: -28 to -21)
+    addL2Wall(utamaGroup, 42.5, -26.5, 9.5, 0.38, 2.45, 0.28);
+    addL2Wall(utamaGroup, 45.0, -21.5, 8.0, 0.38, 2.45, -0.22);
+
+    // Right-center partition cubicles & ticketing/security counters (X: -2 to +12, Z: -26 to -18)
+    addL2Wall(utamaGroup, 5.0, -25.5, 11.0, 0.35, 2.45);
+    addL2Wall(utamaGroup, -0.5, -22.0, 0.35, 7.2, 2.45);
+    addL2Wall(utamaGroup, 10.5, -22.0, 0.35, 7.2, 2.45);
+    addL2Wall(utamaGroup, 5.0, -18.5, 11.0, 0.35, 2.45);
+
+    // Row of Rear Counter / Retail Rooms along Z = -14.5 (between the two connector bridges)
+    for (let cx = 8; cx <= 38; cx += 5.0) {
+      addL2Wall(utamaGroup, cx, -14.2, 0.3, 3.8, 2.3);
+    }
+    addL2Wall(utamaGroup, 23.0, -16.1, 30.5, 0.32, 2.3);
+
+    // Structural Grid of 36 White Columns across Terminal Utama Lantai 2 (4 rows x 9 cols)
+    for (let colX = -2; colX <= 50; colX += 6.5) {
+      [-34.2, -29.0, -23.0, -16.8].forEach((colZPos) => {
+        addL2Column(utamaGroup, colX, colZPos, 2.65);
+      });
+    }
+
+    // Green PA Speaker Indicator Nodes on Terminal Utama Lantai 2
+    [
+      [4, -32], [18, -32], [32, -32], [46, -32],
+      [8, -22], [24, -22], [40, -22], [48, -16], [0, -16]
+    ].forEach(([gx, gz]) => addL2GreenNode(utamaGroup, gx, gz));
 
     // Interactive Volume for Terminal Utama [macro-1]
     const utamaZoneGeo = new THREE.BoxGeometry(utamaW - 1, utamaH - 0.8, utamaD - 1);
@@ -467,9 +1123,9 @@ export class AirportSceneManager {
       color: 0x38bdf8,
       roughness: 0.25,
       metalness: 0.15,
-      transmission: 0.55,
+      transmission: 0.65,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.32,
       depthWrite: false,
     });
     const utamaZoneMesh = new THREE.Mesh(utamaZoneGeo, utamaZoneMat);
@@ -487,6 +1143,7 @@ export class AirportSceneManager {
     );
     utamaFrontGlass.position.set(utamaX, utamaH / 2 + 0.4, frontWallZ);
     utamaGroup.add(utamaFrontGlass);
+    this.upperRoofMeshes.push(utamaFrontGlass);
 
     // White Horizontal & Vertical Mullion Grid across the Front Glass Facade
     for (let my = 2.4; my <= utamaH; my += 2.2) {
@@ -496,6 +1153,7 @@ export class AirportSceneManager {
       );
       hMullion.position.set(utamaX, my, frontWallZ - 0.05);
       utamaGroup.add(hMullion);
+      this.upperRoofMeshes.push(hMullion);
     }
     for (let mx = utamaX - utamaW / 2 + 3; mx <= utamaX + utamaW / 2 - 3; mx += 3.0) {
       const vMullion = new THREE.Mesh(
@@ -504,30 +1162,31 @@ export class AirportSceneManager {
       );
       vMullion.position.set(mx, utamaH / 2 + 0.4, frontWallZ - 0.05);
       utamaGroup.add(vMullion);
+      this.upperRoofMeshes.push(vMullion);
     }
 
-    // 3-Lobe Scalloped Phinisi Wave Roof over Terminal Utama
+    // 3-Lobe Scalloped Phinisi Wave Roof over Terminal Utama (Opaque metallic shell matching image_bf82482f.png)
     const lobeConfigs = [
-      { cx: utamaX - 19.5, w: 21, archH: 3.8, frontExtend: 3.2 },
-      { cx: utamaX,        w: 22, archH: 5.2, frontExtend: 5.6 },
-      { cx: utamaX + 19.5, w: 21, archH: 3.8, frontExtend: 3.2 },
+      { cx: utamaX - 19.5, w: 21, archH: 4.0, frontExtend: 3.2 },
+      { cx: utamaX,        w: 22, archH: 5.5, frontExtend: 5.6 },
+      { cx: utamaX + 19.5, w: 21, archH: 4.0, frontExtend: 3.2 },
     ];
     lobeConfigs.forEach((lobe) => {
       const archShape = new THREE.Shape();
       archShape.moveTo(-lobe.w / 2, 0);
       archShape.quadraticCurveTo(0, lobe.archH, lobe.w / 2, 0);
-      archShape.lineTo(lobe.w / 2, -0.65);
-      archShape.quadraticCurveTo(0, lobe.archH - 0.7, -lobe.w / 2, -0.65);
+      archShape.lineTo(lobe.w / 2, -0.75);
+      archShape.quadraticCurveTo(0, lobe.archH - 0.78, -lobe.w / 2, -0.75);
       archShape.closePath();
 
-      const depth = utamaD + lobe.frontExtend + 1.5;
+      const depth = utamaD + lobe.frontExtend + 2.0;
       const archGeo = new THREE.ExtrudeGeometry(archShape, {
         depth,
         bevelEnabled: true,
         bevelSegments: 3,
         steps: 1,
-        bevelSize: 0.3,
-        bevelThickness: 0.3,
+        bevelSize: 0.32,
+        bevelThickness: 0.32,
       });
       const archMesh = new THREE.Mesh(archGeo, roofShellMat);
       archMesh.position.set(
@@ -538,6 +1197,22 @@ export class AirportSceneManager {
       archMesh.castShadow = true;
       archMesh.receiveShadow = true;
       utamaGroup.add(archMesh);
+      this.upperRoofMeshes.push(archMesh);
+
+      // Dark Bronze/Slate Eave Trim Band along Front & Rear of each Phinisi Wave Lobe
+      const trimGeo = new THREE.ExtrudeGeometry(archShape, {
+        depth: 0.55,
+        bevelEnabled: false,
+      });
+      const frontTrim = new THREE.Mesh(trimGeo, roofBronzeFasciaMat);
+      frontTrim.position.set(lobe.cx, utamaH + 0.35, frontWallZ - lobe.frontExtend - 0.25);
+      utamaGroup.add(frontTrim);
+      this.upperRoofMeshes.push(frontTrim);
+
+      const rearTrim = new THREE.Mesh(trimGeo, roofBronzeFasciaMat);
+      rearTrim.position.set(lobe.cx, utamaH + 0.35, frontWallZ - lobe.frontExtend + depth - 0.25);
+      utamaGroup.add(rearTrim);
+      this.upperRoofMeshes.push(rearTrim);
 
       // Rounded Scalloped Front Nose Bullnose Cap facing the Curbside Road (-Z)
       const lobeTipGeo = new THREE.CylinderGeometry(
@@ -554,6 +1229,19 @@ export class AirportSceneManager {
       lobeTip.rotation.y = Math.PI;
       lobeTip.position.set(lobe.cx, utamaH + 0.9, frontWallZ - lobe.frontExtend + 0.4);
       utamaGroup.add(lobeTip);
+      this.upperRoofMeshes.push(lobeTip);
+    });
+
+    // Side Wing Roofs over Left (+X=57.5) and Right (-X=-9.5) T-Wings of Terminal Utama
+    [-9.5, 57.5].forEach((wingX) => {
+      const wingRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(7.6, 0.55, 18.6),
+        roofShellMat
+      );
+      wingRoof.position.set(wingX, 9.8, -25.0);
+      wingRoof.castShadow = true;
+      utamaGroup.add(wingRoof);
+      this.upperRoofMeshes.push(wingRoof);
     });
 
     // =========================================================================
@@ -571,6 +1259,7 @@ export class AirportSceneManager {
     lt3Sidewalk.receiveShadow = true;
     lt3Sidewalk.castShadow = true;
     utamaGroup.add(lt3Sidewalk);
+    this.lantai2Meshes.push(lt3Sidewalk);
 
     // Lower Structural Support Columns under Lantai 3 Curbside Sidewalk (from Y=0 to Y=9.6m)
     for (let sx = utamaX - utamaW / 2 + 4; sx <= utamaX + utamaW / 2 - 4; sx += 13.0) {
@@ -581,6 +1270,7 @@ export class AirportSceneManager {
       subCol.position.set(sx, lt3Y / 2, frontWallZ - 3.2);
       subCol.castShadow = true;
       utamaGroup.add(subCol);
+      this.lantai2Meshes.push(subCol);
     }
 
     // Chamfered Silver-Metallic Curbside Drop-Off Canopy Overhang above Lantai 3 (Y = 13.6m)
@@ -593,6 +1283,7 @@ export class AirportSceneManager {
     canopyBox.position.set(utamaX, canopyY, frontWallZ - canopyD / 2 + 0.2);
     canopyBox.castShadow = true;
     utamaGroup.add(canopyBox);
+    this.upperRoofMeshes.push(canopyBox);
 
     // Angled Chamfered Front Lip Plate on Silver Canopy
     const lipPlate = new THREE.Mesh(
@@ -602,64 +1293,90 @@ export class AirportSceneManager {
     lipPlate.position.set(utamaX, canopyY + 0.15, frontWallZ - canopyD + 0.2);
     lipPlate.rotation.x = 0.35;
     utamaGroup.add(lipPlate);
+    this.upperRoofMeshes.push(lipPlate);
 
     // Row of White Cylindrical Structural Columns on Octagonal Concrete Pedestals ON Lantai 3 Sidewalk
     const colZ = frontWallZ - 4.3; // Z = -42.3 along the Lantai 3 curbside edge
     for (let cx = utamaX - utamaW / 2 + 2; cx <= utamaX + utamaW / 2 - 2; cx += 8.0) {
-      // Octagonal Concrete Base Pedestal sitting on Lantai 3 Trotoar (Y = 9.88m)
       const octBaseGeo = new THREE.CylinderGeometry(0.72, 0.84, 1.15, 8);
       const octBase = new THREE.Mesh(octBaseGeo, pedestalMat);
       octBase.position.set(cx, lt3Y + 0.32 + 0.57, colZ);
       octBase.castShadow = true;
       octBase.receiveShadow = true;
       utamaGroup.add(octBase);
+      this.lantai2Meshes.push(octBase);
 
-      // Dark reveal ring between pedestal and white column
       const collarGeo = new THREE.CylinderGeometry(0.5, 0.54, 0.12, 16);
       const collar = new THREE.Mesh(collarGeo, roofAccentMat);
       collar.position.set(cx, lt3Y + 1.5, colZ);
       utamaGroup.add(collar);
+      this.lantai2Meshes.push(collar);
 
-      // White Cylindrical Column rising from Lantai 3 Pedestal up to the Canopy & Phinisi Roof
       const whiteColGeo = new THREE.CylinderGeometry(0.42, 0.46, 4.2, 20);
       const whiteCol = new THREE.Mesh(whiteColGeo, whiteColumnMat);
       whiteCol.position.set(cx, lt3Y + 1.55 + 2.1, colZ);
       whiteCol.castShadow = true;
       utamaGroup.add(whiteCol);
+      this.lantai2Meshes.push(whiteCol);
 
-      // Angled V-Strut Capital connecting column to the Scalloped Roof
       const strutGeo = new THREE.CylinderGeometry(0.22, 0.34, 2.2, 12);
       const strut = new THREE.Mesh(strutGeo, silverCanopyMat);
       strut.position.set(cx, canopyY + 0.9, colZ + 0.4);
       strut.rotation.x = 0.25;
       utamaGroup.add(strut);
+      this.upperRoofMeshes.push(strut);
     }
 
     // Parked Drop-Off Realistic SUVs / Sedans & Orange Traffic Cones along the Lantai 3 Drop-Off Lane
     const dropOffCars = [
-      { x: 0,  color: 0x0f172a, isSUV: true },   // Black SUV
-      { x: 11, color: 0xf8fafc, isSUV: true },   // Pearl White MPV/SUV
-      { x: 22, color: 0x1e293b, isSUV: false },  // Dark Grey Sedan
-      { x: 34, color: 0xe2e8f0, isSUV: false },  // Silver Sedan
-      { x: 45, color: 0x0f172a, isSUV: true },   // Black SUV
+      { x: 0,  color: 0x0f172a, isSUV: true },
+      { x: 11, color: 0xf8fafc, isSUV: true },
+      { x: 22, color: 0x1e293b, isSUV: false },
+      { x: 34, color: 0xe2e8f0, isSUV: false },
+      { x: 45, color: 0x0f172a, isSUV: true },
     ];
     dropOffCars.forEach((car) => {
       const carModel = this.createRealisticCar(car.color, car.isSUV);
       carModel.position.set(car.x, lt3Y + 0.26, frontWallZ - 6.8);
       carModel.rotation.y = Math.PI / 2;
       utamaGroup.add(carModel);
+      this.lantai2Meshes.push(carModel);
     });
 
-    // Orange Traffic Cones along the Lantai 3 Curbside Edge
     const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
     for (let kx = 5; kx <= 49; kx += 11) {
       const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 12), coneMat);
       cone.position.set(kx, lt3Y + 0.6, frontWallZ - 5.3);
       utamaGroup.add(cone);
+      this.lantai2Meshes.push(cone);
     }
 
-    // Two 2-Storey Connector Bridges linking Terminal Utama to Terminal Eksisting (framing green courtyard)
+    // -------------------------------------------------------------------------
+    // TWO LANTAI 2 CONNECTOR BRIDGES (X = 0 and X = 46, Z: -12 to -2)
+    // Dark charcoal floors + 3D white side parapet walls + structural columns
+    // -------------------------------------------------------------------------
     [0, 46].forEach((bridgeX) => {
+      // Lantai 1 & Lantai 2 slabs for bridge
+      const bSlab1 = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.4, 10.4), slabMat);
+      bSlab1.position.set(bridgeX, 0.4, -7);
+      utamaGroup.add(bSlab1);
+
+      const bFloor2 = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.38, 10.4), darkFloorMat);
+      bFloor2.position.set(bridgeX, 4.7, -7);
+      bFloor2.receiveShadow = true;
+      utamaGroup.add(bFloor2);
+      this.lantai2Meshes.push(bFloor2);
+
+      // Left & Right 3D White Corridor Walls on Lantai 2 Bridge
+      addL2Wall(utamaGroup, bridgeX - 4.9, -7.0, 0.42, 10.2, 2.45);
+      addL2Wall(utamaGroup, bridgeX + 4.9, -7.0, 0.42, 10.2, 2.45);
+
+      // Internal bridge divider columns & threshold portals
+      addL2Column(utamaGroup, bridgeX - 2.2, -9.5, 2.5);
+      addL2Column(utamaGroup, bridgeX + 2.2, -9.5, 2.5);
+      addL2Column(utamaGroup, bridgeX - 2.2, -4.5, 2.5);
+      addL2Column(utamaGroup, bridgeX + 2.2, -4.5, 2.5);
+
       const bridgeGeo = new THREE.BoxGeometry(10, 8.2, 10);
       const bridgeMat = utamaZoneMat.clone();
       const bridgeMesh = new THREE.Mesh(bridgeGeo, bridgeMat);
@@ -668,30 +1385,105 @@ export class AirportSceneManager {
       utamaGroup.add(bridgeMesh);
       this.addZoneMesh('macro-1', bridgeMesh);
 
-      const bridgeRoof = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.5, 10.6), roofShellMat);
+      const bridgeRoof = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.45, 10.6), roofShellMat);
       bridgeRoof.position.set(bridgeX, 8.8, -7);
+      bridgeRoof.castShadow = true;
       utamaGroup.add(bridgeRoof);
+      this.upperRoofMeshes.push(bridgeRoof);
     });
 
     terminalGroup.add(utamaGroup);
 
     // =========================================================================
     // 2. TERMINAL EKSISTING (2 LANTAI · GATE 07–12) — Macro Zone 2
-    // Located at Airside Center-Right: X: -12 to +60 (W=72), Z: -2 to +16 (D=18), H=8.2m (2 floors)
+    // Located at Airside Center-Left: X: -12 to +60 (W=72), Z: -2 to +16 (D=18), H=8.2m
+    // Plus Central Recessed Courtyard Bay at X: +10 to +36, Z: -6.5 to -2
     // =========================================================================
     const eksistingGroup = new THREE.Group();
     const eksX = 24;
     const eksZ = 7;
     const eksW = 72;
     const eksD = 18;
-    const eksH = 8.2; // 2 floors of 4.1m
+    const eksH = 8.2;
 
-    // 2 Floor Slabs (Lantai 1 & Lantai 2)
-    for (let fl = 1; fl <= 2; fl++) {
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(eksW, 0.35, eksD), slabMat);
-      slab.position.set(eksX, fl * 4.0 - 3.6, eksZ);
+    // 2 Floor Slabs (Lantai 1 at Y=0.4m & Lantai 2 at Y=4.6m)
+    [0.4, 4.6].forEach((flY) => {
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(eksW, 0.38, eksD), slabMat);
+      slab.position.set(eksX, flY, eksZ);
+      slab.receiveShadow = true;
       eksistingGroup.add(slab);
+
+      // Central Recessed Rear Bay between the 2 Connector Bridges (X: 10 to 36, Z: -6.5 to -2)
+      const rearBaySlab = new THREE.Mesh(new THREE.BoxGeometry(26, 0.38, 4.6), slabMat);
+      rearBaySlab.position.set(23, flY, -4.3);
+      rearBaySlab.receiveShadow = true;
+      eksistingGroup.add(rearBaySlab);
+
+      if (flY > 2.0) {
+        this.lantai2Meshes.push(slab, rearBaySlab);
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // LANTAI 2 (Y = 4.6m) ARCHITECTURAL MOCKUP — TERMINAL EKSISTING
+    // Light grey/white boarding concourse floor + rear dark transfer bay +
+    // 3D white partition rooms, gate holdroom stalls, column spine & green nodes
+    // -------------------------------------------------------------------------
+    const eksWhiteFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(eksW - 0.4, 0.12, eksD - 0.4),
+      whiteFloorMat
+    );
+    eksWhiteFloor.position.set(eksX, 4.82, eksZ);
+    eksWhiteFloor.receiveShadow = true;
+    eksistingGroup.add(eksWhiteFloor);
+    this.lantai2Meshes.push(eksWhiteFloor);
+
+    // Dark Charcoal Floor in Central Recessed Rear Bay (X: 10 to 36, Z: -6.5 to +1)
+    const eksRearDarkFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(25.8, 0.14, 7.2),
+      darkFloorMat
+    );
+    eksRearDarkFloor.position.set(23, 4.83, -2.8);
+    eksRearDarkFloor.receiveShadow = true;
+    eksistingGroup.add(eksRearDarkFloor);
+    this.lantai2Meshes.push(eksRearDarkFloor);
+
+    // Perimeter 3D White Walls of Terminal Eksisting Lantai 2
+    addL2Wall(eksistingGroup, 59.8, 7.0, 0.42, 18.0, 2.45); // Far left (+X=60) end wall
+    addL2Wall(eksistingGroup, 24.0, 15.8, 72.0, 0.38, 2.45); // Airside front wall (Z = +15.8)
+    addL2Wall(eksistingGroup, 55.5, -1.8, 9.0, 0.38, 2.45);  // Rear wall left of Bridge 1
+    addL2Wall(eksistingGroup, 23.0, -6.4, 26.0, 0.38, 2.45); // Recessed bay rear wall
+    addL2Wall(eksistingGroup, 10.0, -4.1, 0.38, 4.6, 2.45);  // Recessed bay right side wall
+    addL2Wall(eksistingGroup, 36.0, -4.1, 0.38, 4.6, 2.45);  // Recessed bay left side wall
+    addL2Wall(eksistingGroup, -8.5, -1.8, 7.0, 0.38, 2.45);  // Rear wall right of Bridge 2
+
+    // Row of 10 Landside Commercial / Retail / Restroom Partition Rooms (Z: -1.8 to +4.2)
+    addL2Wall(eksistingGroup, 24.0, 4.2, 66.0, 0.32, 2.35); // Corridor wall along Z = +4.2
+    for (let rx = -8; rx <= 56; rx += 6.4) {
+      addL2Wall(eksistingGroup, rx, 1.2, 0.3, 6.0, 2.35);
     }
+    // Recessed bay internal partition rooms (X: 12 to 34, Z: -6.4 to -1.8)
+    for (let bx = 15; bx <= 31; bx += 5.2) {
+      addL2Wall(eksistingGroup, bx, -4.1, 0.3, 4.4, 2.35);
+    }
+
+    // Airside Gate Holdroom Divider Partitions & Boarding Desks (Gates 07 to 12 along Z: +11.5 to +15.8)
+    [-6, 6, 18, 30, 42, 54].forEach((gx) => {
+      addL2Wall(eksistingGroup, gx - 3.2, 13.5, 0.3, 4.4, 2.2);
+      addL2Wall(eksistingGroup, gx + 2.8, 12.2, 3.4, 0.3, 2.2);
+    });
+
+    // Central Spine of 14 White Cylindrical Structural Columns along Terminal Eksisting Lantai 2
+    for (let cx = -9; cx <= 57; cx += 5.0) {
+      addL2Column(eksistingGroup, cx, 7.8, 2.65);
+      addL2Column(eksistingGroup, cx, 12.8, 2.65);
+    }
+
+    // Green PA Speaker / Acoustic Nodes along Terminal Eksisting Lantai 2 (matching reference diagram)
+    [-8, -1, 7, 15, 23, 31, 39, 47, 55].forEach((gx) => {
+      addL2GreenNode(eksistingGroup, gx, 5.5);
+      addL2GreenNode(eksistingGroup, gx, 13.8);
+    });
 
     // Interactive Volume for Terminal Eksisting (2 Lantai) [macro-2]
     const eksZoneGeo = new THREE.BoxGeometry(eksW - 0.8, eksH - 0.6, eksD - 0.8);
@@ -699,9 +1491,9 @@ export class AirportSceneManager {
       color: 0x34d399,
       roughness: 0.25,
       metalness: 0.15,
-      transmission: 0.55,
+      transmission: 0.65,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.32,
       depthWrite: false,
     });
     const eksZoneMesh = new THREE.Mesh(eksZoneGeo, eksZoneMat);
@@ -711,63 +1503,262 @@ export class AirportSceneManager {
     eksistingGroup.add(eksZoneMesh);
     this.addZoneMesh('macro-2', eksZoneMesh);
 
-    // Repeating 6 Vaulted Phinisi Wave Roof Bays over Gates 07 - 12
+    // Repeating 6 Vaulted Phinisi Wave Roof Bays over Gates 07 - 12 (Opaque metallic shells matching image_bf82482f.png)
     for (let i = 0; i < 6; i++) {
       const bayW = eksW / 6;
       const bx = -12 + bayW * (i + 0.5);
       const vaultShape = new THREE.Shape();
       vaultShape.moveTo(-bayW / 2, 0);
-      vaultShape.quadraticCurveTo(0, 2.4, bayW / 2, 0);
-      vaultShape.lineTo(bayW / 2, -0.45);
-      vaultShape.quadraticCurveTo(0, 1.9, -bayW / 2, -0.45);
+      vaultShape.quadraticCurveTo(0, 2.6, bayW / 2, 0);
+      vaultShape.lineTo(bayW / 2, -0.55);
+      vaultShape.quadraticCurveTo(0, 2.0, -bayW / 2, -0.55);
       vaultShape.closePath();
 
       const vaultGeo = new THREE.ExtrudeGeometry(vaultShape, {
-        depth: eksD + 2,
-        bevelEnabled: false,
+        depth: eksD + 2.4,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.15,
+        bevelThickness: 0.15,
       });
       const vault = new THREE.Mesh(vaultGeo, roofShellMat);
-      vault.position.set(bx, eksH + 0.4, eksZ - (eksD + 2) / 2);
+      vault.position.set(bx, eksH + 0.4, eksZ - (eksD + 2.4) / 2);
       vault.castShadow = true;
+      vault.receiveShadow = true;
       eksistingGroup.add(vault);
+      this.upperRoofMeshes.push(vault);
+
+      // Front & Rear Dark Bronze/Slate Arch Fascia Bands on each Vaulted Roof Bay
+      const archTrimGeo = new THREE.ExtrudeGeometry(vaultShape, {
+        depth: 0.42,
+        bevelEnabled: false,
+      });
+      const frontArchTrim = new THREE.Mesh(archTrimGeo, roofBronzeFasciaMat);
+      frontArchTrim.position.set(bx, eksH + 0.36, eksZ + (eksD + 2.4) / 2 - 0.2);
+      eksistingGroup.add(frontArchTrim);
+      this.upperRoofMeshes.push(frontArchTrim);
     }
 
     terminalGroup.add(eksistingGroup);
 
     // =========================================================================
     // 3. TERMINAL SELATAN (2 LANTAI · GATE 01–06) — Macro Zone 3
-    // Features Straight Concourse (X: -48 to -12, Z: -2 to +16) +
-    // Iconic Semi-Circular Curved Fan Rotunda at (X: -50, Z: +7, Radius: 15.5m)
+    // Matches the exact Lantai 2 & Lantai 1 architectural plans + Opaque Fan Rotunda Roof
     // =========================================================================
     const selatanGroup = new THREE.Group();
-    const selStraightX = -30;
-    const selStraightW = 36; // X: -48 to -12
-    const selD = 18;         // Z: -2 to +16
-    const selH = 8.2;        // 2 floors
+    const selStraightX = -27; // Center of X: -42 to -12
+    const selStraightW = 30;  // X: -42 to -12
+    const selD = 18;          // Z: -2 to +16
+    const selH = 8.2;         // 2 floors
+    const curveCenterX = -42;
+    const curveCenterZ = -16;
+    const innerR = 14.0;      // -16 + 14 = -2 (matches Z = -2 inner wall!)
+    const midR = 23.0;        // Divider between inner white rooms and outer dark carpet walkway
+    const outerR = 32.0;      // -16 + 32 = +16 (matches Z = +16 outer airside wall!)
+    const curveStartAngle = Math.PI * 0.5;
+    const curveEndAngle = Math.PI * 1.02;
 
-    // 2 Floor Slabs for Straight Section
-    for (let fl = 1; fl <= 2; fl++) {
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(selStraightW, 0.35, selD), slabMat);
-      slab.position.set(selStraightX, fl * 4.0 - 3.6, 7);
-      selatanGroup.add(slab);
+    const createCurvedSlabMesh = (
+      rIn: number,
+      rOut: number,
+      thickness: number,
+      yPos: number,
+      mat: THREE.Material,
+      aStart: number = curveStartAngle,
+      aEnd: number = curveEndAngle,
+      segs: number = 36
+    ) => {
+      const shape = this.createArcSectorShape(rIn, rOut, aStart, aEnd, segs);
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+      geo.rotateX(-Math.PI / 2);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(curveCenterX, yPos, curveCenterZ);
+      mesh.receiveShadow = true;
+      return mesh;
+    };
+    const arcAStart = -Math.PI * 1.02;
+    const arcAEnd = -Math.PI * 0.5;
 
-      // Curved Fan Rotunda Floor Slab
-      const rotSlab = new THREE.Mesh(new THREE.CylinderGeometry(15.2, 15.2, 0.35, 28), slabMat);
-      rotSlab.position.set(-50, fl * 4.0 - 3.6, 7);
-      selatanGroup.add(rotSlab);
+    // 1. Lantai 1 & Lantai 2 Base Structural Slabs for Straight Section, Curved Pier & Circular Rotunda Core
+    [0.4, 4.6].forEach((flY) => {
+      // Straight Concourse Slab (X: -42 to -12, Z: -2 to +16)
+      const stSlab = new THREE.Mesh(new THREE.BoxGeometry(selStraightW, 0.38, selD), slabMat);
+      stSlab.position.set(selStraightX, flY, 7);
+      stSlab.receiveShadow = true;
+      selatanGroup.add(stSlab);
+
+      // Curved Quarter-Circle Finger Pier Slab (Inner R=14 to Outer R=32)
+      const curvedSlab = createCurvedSlabMesh(innerR, outerR, 0.38, flY - 0.19, slabMat, arcAStart, arcAEnd, 40);
+      selatanGroup.add(curvedSlab);
+
+      // Inner Landside Circular Rotunda Core / Atrium Drum Slab at (X = -41, Z = -5.8, R = 5.6m)
+      const drumSlab = new THREE.Mesh(new THREE.CylinderGeometry(5.6, 5.6, 0.38, 28), slabMat);
+      drumSlab.position.set(-41, flY, -5.8);
+      drumSlab.receiveShadow = true;
+      selatanGroup.add(drumSlab);
+
+      if (flY > 2.0) {
+        this.lantai2Meshes.push(stSlab, curvedSlab, drumSlab);
+      }
+    });
+
+    // Lantai 1 Curved Pier Tile Floor & Structural Columns (visible in Lantai 1 view)
+    const selL1CurvedFloor = createCurvedSlabMesh(
+      innerR + 0.2,
+      outerR - 0.2,
+      0.14,
+      0.55,
+      l1TileFloorMat,
+      arcAStart,
+      arcAEnd,
+      40
+    );
+    selatanGroup.add(selL1CurvedFloor);
+
+    // -------------------------------------------------------------------------
+    // LANTAI 2 (Y = 4.6m) ARCHITECTURAL MOCKUP — TERMINAL SELATAN
+    // -------------------------------------------------------------------------
+    const selStWhiteFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(selStraightW, 0.12, 9.0),
+      whiteFloorMat
+    );
+    selStWhiteFloor.position.set(selStraightX, 4.82, 2.5);
+    selStWhiteFloor.receiveShadow = true;
+    selatanGroup.add(selStWhiteFloor);
+    this.lantai2Meshes.push(selStWhiteFloor);
+
+    const selStDarkFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(selStraightW, 0.14, 9.0),
+      selatanCarpetMat
+    );
+    selStDarkFloor.position.set(selStraightX, 4.83, 11.5);
+    selStDarkFloor.receiveShadow = true;
+    selatanGroup.add(selStDarkFloor);
+    this.lantai2Meshes.push(selStDarkFloor);
+
+    const selCurvedWhiteFloor = createCurvedSlabMesh(
+      innerR + 0.1,
+      midR,
+      0.12,
+      4.79,
+      whiteFloorMat,
+      arcAStart,
+      arcAEnd,
+      40
+    );
+    selatanGroup.add(selCurvedWhiteFloor);
+    this.lantai2Meshes.push(selCurvedWhiteFloor);
+
+    const selCurvedDarkFloor = createCurvedSlabMesh(
+      midR,
+      outerR - 0.1,
+      0.14,
+      4.80,
+      selatanCarpetMat,
+      arcAStart,
+      arcAEnd,
+      40
+    );
+    selatanGroup.add(selCurvedDarkFloor);
+    this.lantai2Meshes.push(selCurvedDarkFloor);
+
+    const drumDarkFloor = new THREE.Mesh(
+      new THREE.CylinderGeometry(5.4, 5.4, 0.15, 28),
+      darkFloorMat
+    );
+    drumDarkFloor.position.set(-41, 4.84, -5.8);
+    selatanGroup.add(drumDarkFloor);
+    this.lantai2Meshes.push(drumDarkFloor);
+
+    const drumOuterWall = createCurvedSlabMesh(4.9, 5.5, 2.45, 4.65, partitionWallMat, -Math.PI * 0.15, Math.PI * 1.15, 28);
+    drumOuterWall.position.set(-41, 4.65, -5.8);
+    selatanGroup.add(drumOuterWall);
+    this.lantai2Meshes.push(drumOuterWall);
+
+    const drumInnerRing = createCurvedSlabMesh(2.1, 2.5, 2.45, 4.65, partitionWallMat, 0, Math.PI * 2, 24);
+    drumInnerRing.position.set(-41, 4.65, -5.8);
+    selatanGroup.add(drumInnerRing);
+    this.lantai2Meshes.push(drumInnerRing);
+
+    const curvedInnerWall = createCurvedSlabMesh(innerR, innerR + 0.42, 2.45, 4.65, partitionWallMat, arcAStart, arcAEnd, 40);
+    selatanGroup.add(curvedInnerWall);
+    this.lantai2Meshes.push(curvedInnerWall);
+
+    const curvedMidWall = createCurvedSlabMesh(midR - 0.18, midR + 0.18, 2.35, 4.65, partitionWallMat, arcAStart + 0.05, arcAEnd - 0.04, 36);
+    selatanGroup.add(curvedMidWall);
+    this.lantai2Meshes.push(curvedMidWall);
+
+    const curvedOuterWall = createCurvedSlabMesh(outerR - 0.42, outerR, 2.45, 4.65, partitionWallMat, arcAStart, arcAEnd, 40);
+    selatanGroup.add(curvedOuterWall);
+    this.lantai2Meshes.push(curvedOuterWall);
+
+    addL2Wall(selatanGroup, -65.0, -16.5, 18.0, 0.45, 2.45, 0.04);
+    addL2Wall(selatanGroup, -26.0, -1.8, 28.0, 0.38, 2.45);
+    addL2Wall(selatanGroup, -27.0, 15.8, 30.0, 0.38, 2.45);
+    addL2Wall(selatanGroup, -27.0, 6.8, 29.0, 0.35, 2.35);
+    addL2Wall(selatanGroup, -12.0, 3.5, 0.38, 11.0, 2.45);
+
+    for (let sx = -38; sx <= -16; sx += 5.5) {
+      addL2Wall(selatanGroup, sx, 2.5, 0.3, 8.6, 2.35);
     }
 
+    for (let s = 1; s <= 7; s++) {
+      const theta = (s / 8) * (Math.PI * 0.5);
+      const midRad = (innerR + midR) / 2;
+      const wx = curveCenterX - Math.sin(theta) * midRad;
+      const wz = curveCenterZ + Math.cos(theta) * midRad;
+      addL2Wall(selatanGroup, wx, wz, 0.32, midR - innerR - 0.4, 2.35, -theta);
+    }
+
+    for (let s = 0; s <= 8; s++) {
+      const theta = (s / 8) * (Math.PI * 0.48);
+      const colRad = 27.5;
+      const cx = curveCenterX - Math.sin(theta) * colRad;
+      const cz = curveCenterZ + Math.cos(theta) * colRad;
+      addL2Column(selatanGroup, cx, cz, 2.65);
+
+      if (s % 2 === 1) {
+        const gx = curveCenterX - Math.sin(theta) * 29.8;
+        const gz = curveCenterZ + Math.cos(theta) * 29.8;
+        addL2Wall(selatanGroup, gx, gz, 3.2, 0.32, 2.2, -theta);
+      }
+    }
+
+    for (let cx = -38; cx <= -16; cx += 5.5) {
+      addL2Column(selatanGroup, cx, 11.5, 2.65);
+    }
+
+    [
+      [-16, 4.5], [-24, 4.5], [-32, 4.5], [-39, 4.5],
+      [-18, 13.5], [-28, 13.5], [-37, 13.5], [-41, -5.8]
+    ].forEach(([gx, gz]) => addL2GreenNode(selatanGroup, gx, gz));
+
+    for (let s = 1; s <= 6; s++) {
+      const theta = (s / 6.5) * (Math.PI * 0.48);
+      addL2GreenNode(
+        selatanGroup,
+        curveCenterX - Math.sin(theta) * 20.0,
+        curveCenterZ + Math.cos(theta) * 20.0
+      );
+      addL2GreenNode(
+        selatanGroup,
+        curveCenterX - Math.sin(theta) * 28.5,
+        curveCenterZ + Math.cos(theta) * 28.5
+      );
+    }
+
+    // Interactive Volumes for Terminal Selatan [macro-3]
     const selZoneMat = new THREE.MeshPhysicalMaterial({
       color: 0x818cf8,
       roughness: 0.25,
       metalness: 0.15,
-      transmission: 0.55,
+      transmission: 0.65,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.32,
       depthWrite: false,
     });
 
-    // Straight Concourse Volume (Gate 05 - 06)
     const selStraightMesh = new THREE.Mesh(
       new THREE.BoxGeometry(selStraightW - 0.5, selH - 0.6, selD - 0.8),
       selZoneMat
@@ -778,115 +1769,214 @@ export class AirportSceneManager {
     selatanGroup.add(selStraightMesh);
     this.addZoneMesh('macro-3', selStraightMesh);
 
-    // Curved Fan Rotunda Volume (Gate 01 - 04)
-    const rotundaZoneMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(15.0, 15.0, selH - 0.6, 32),
-      selZoneMat.clone()
+    const curvedZoneMesh = createCurvedSlabMesh(
+      innerR + 0.3,
+      outerR - 0.3,
+      selH - 0.6,
+      0.7,
+      selZoneMat.clone(),
+      arcAStart,
+      arcAEnd,
+      36
     );
-    rotundaZoneMesh.position.set(-50, selH / 2 + 0.4, 7);
-    rotundaZoneMesh.castShadow = true;
-    rotundaZoneMesh.receiveShadow = true;
-    selatanGroup.add(rotundaZoneMesh);
-    this.addZoneMesh('macro-3', rotundaZoneMesh);
+    selatanGroup.add(curvedZoneMesh);
+    this.addZoneMesh('macro-3', curvedZoneMesh);
 
-    // Rotunda Domed Fan Roof + Central Oculus Skylight (matching reference aerial view)
-    const rotundaRoofGeo = new THREE.CylinderGeometry(13.5, 16.2, 1.4, 32);
-    const rotundaRoof = new THREE.Mesh(rotundaRoofGeo, roofShellMat);
-    rotundaRoof.position.set(-50, selH + 1.0, 7);
-    rotundaRoof.castShadow = true;
-    selatanGroup.add(rotundaRoof);
-
-    const rotundaSkylight = new THREE.Mesh(
-      new THREE.CylinderGeometry(6.0, 7.5, 0.8, 24),
-      curtainGlassMat
+    // Upper Opaque Metallic Roofs over Terminal Selatan (matching image_bf82482f.png)
+    const curvedPierRoof = createCurvedSlabMesh(
+      innerR - 0.8,
+      outerR + 0.8,
+      0.75,
+      selH + 0.4,
+      roofShellMat,
+      arcAStart,
+      arcAEnd,
+      44
     );
-    rotundaSkylight.position.set(-50, selH + 1.8, 7);
-    selatanGroup.add(rotundaSkylight);
+    curvedPierRoof.castShadow = true;
+    selatanGroup.add(curvedPierRoof);
+    this.upperRoofMeshes.push(curvedPierRoof);
 
-    // Radial structural ribs on the curved fan rotunda roof
-    for (let r = 0; r < 8; r++) {
-      const angle = (r / 8) * Math.PI * 2;
-      const ribGeo = new THREE.BoxGeometry(0.45, 0.5, 15.5);
-      const rib = new THREE.Mesh(ribGeo, roofAccentMat);
-      rib.position.set(-50 + Math.cos(angle) * 7.2, selH + 1.65, 7 + Math.sin(angle) * 7.2);
-      rib.rotation.y = -angle + Math.PI / 2;
-      selatanGroup.add(rib);
-    }
+    // Outer Eave Fascia Band around the Curved Fan Roof of Terminal Selatan
+    const curvedRoofFascia = createCurvedSlabMesh(
+      outerR + 0.4,
+      outerR + 1.0,
+      0.92,
+      selH + 0.32,
+      roofBronzeFasciaMat,
+      arcAStart,
+      arcAEnd,
+      44
+    );
+    selatanGroup.add(curvedRoofFascia);
+    this.upperRoofMeshes.push(curvedRoofFascia);
 
-    // 3 Wave Roof Bays over Straight Section of Terminal Selatan
+    const drumRoof = new THREE.Mesh(
+      new THREE.CylinderGeometry(6.0, 6.0, 0.75, 32),
+      roofShellMat
+    );
+    drumRoof.position.set(-41, selH + 0.6, -5.8);
+    drumRoof.castShadow = true;
+    selatanGroup.add(drumRoof);
+    this.upperRoofMeshes.push(drumRoof);
+
     for (let i = 0; i < 3; i++) {
       const bayW = selStraightW / 3;
-      const bx = -48 + bayW * (i + 0.5);
+      const bx = -42 + bayW * (i + 0.5);
       const vaultShape = new THREE.Shape();
       vaultShape.moveTo(-bayW / 2, 0);
-      vaultShape.quadraticCurveTo(0, 2.4, bayW / 2, 0);
-      vaultShape.lineTo(bayW / 2, -0.45);
-      vaultShape.quadraticCurveTo(0, 1.9, -bayW / 2, -0.45);
+      vaultShape.quadraticCurveTo(0, 2.6, bayW / 2, 0);
+      vaultShape.lineTo(bayW / 2, -0.55);
+      vaultShape.quadraticCurveTo(0, 2.0, -bayW / 2, -0.55);
       vaultShape.closePath();
 
       const vaultGeo = new THREE.ExtrudeGeometry(vaultShape, {
-        depth: selD + 2,
-        bevelEnabled: false,
+        depth: selD + 2.4,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.15,
+        bevelThickness: 0.15,
       });
       const vault = new THREE.Mesh(vaultGeo, roofShellMat);
-      vault.position.set(bx, selH + 0.4, 7 - (selD + 2) / 2);
+      vault.position.set(bx, selH + 0.4, 7 - (selD + 2.4) / 2);
       vault.castShadow = true;
+      vault.receiveShadow = true;
       selatanGroup.add(vault);
+      this.upperRoofMeshes.push(vault);
+
+      const archTrimGeo = new THREE.ExtrudeGeometry(vaultShape, {
+        depth: 0.42,
+        bevelEnabled: false,
+      });
+      const frontArchTrim = new THREE.Mesh(archTrimGeo, roofBronzeFasciaMat);
+      frontArchTrim.position.set(bx, selH + 0.36, 7 + (selD + 2.4) / 2 - 0.2);
+      selatanGroup.add(frontArchTrim);
+      this.upperRoofMeshes.push(frontArchTrim);
     }
 
     terminalGroup.add(selatanGroup);
 
     // =========================================================================
     // 4. APRON & 12 GARBARATA (JET BRIDGES GATE 01 – GATE 12) — Macro Zone 4
+    // Clean single-arm Garbarata 01 (image_9639f757.png) with flush docking cab head
     // =========================================================================
     const jetMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      metalness: 0.5,
+      color: 0xf8fafc,
+      metalness: 0.25,
       roughness: 0.3,
     });
     const jetGlassMat = new THREE.MeshPhysicalMaterial({
       color: 0xa78bfa,
-      transmission: 0.6,
+      transmission: 0.65,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.38,
       roughness: 0.2,
       metalness: 0.2,
+      depthWrite: false,
     });
+    const bellowsMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.75,
+      metalness: 0.15,
+    });
+
+    const buildJetBridgeArm = (
+      parent: THREE.Group,
+      length: number,
+      offsetX: number = 0,
+      extraAngle: number = 0
+    ) => {
+      const armGroup = new THREE.Group();
+      armGroup.position.set(offsetX, 0, 0);
+      armGroup.rotation.y = extraAngle;
+
+      // Dark Charcoal Lantai 2 Walkway Floor inside Garbarata
+      const floorWalkway = new THREE.Mesh(
+        new THREE.BoxGeometry(2.1, 0.28, length),
+        darkFloorMat
+      );
+      floorWalkway.position.set(0, 4.65, length / 2);
+      floorWalkway.receiveShadow = true;
+      armGroup.add(floorWalkway);
+
+      // Left & Right White 3D Side Parapet Walls on Garbarata
+      const leftWall = new THREE.Mesh(
+        new THREE.BoxGeometry(0.24, 1.85, length),
+        partitionWallMat
+      );
+      leftWall.position.set(-1.05, 5.55, length / 2);
+      leftWall.castShadow = true;
+      armGroup.add(leftWall);
+
+      const rightWall = new THREE.Mesh(
+        new THREE.BoxGeometry(0.24, 1.85, length),
+        partitionWallMat
+      );
+      rightWall.position.set(1.05, 5.55, length / 2);
+      rightWall.castShadow = true;
+      armGroup.add(rightWall);
+
+      // Interactive Garbarata Tunnel Volume [macro-4]
+      const tunnelGeo = new THREE.BoxGeometry(2.3, 2.2, length);
+      const tunnelMesh = new THREE.Mesh(tunnelGeo, jetGlassMat.clone());
+      tunnelMesh.position.set(0, 5.5, length / 2);
+      tunnelMesh.castShadow = true;
+      armGroup.add(tunnelMesh);
+      this.addZoneMesh('macro-4', tunnelMesh);
+
+      // Upper Roof Cap (registered in upperRoofMeshes so open-top Lantai 2 view shows the dark walkway inside)
+      const roofCap = new THREE.Mesh(new THREE.BoxGeometry(2.46, 0.24, length + 0.4), roofShellMat);
+      roofCap.position.set(0, 6.55, length / 2);
+      armGroup.add(roofCap);
+      this.upperRoofMeshes.push(roofCap);
+
+      // Hydraulic Wheel Bogie Pylon + Twin Tires at end of Garbarata
+      const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.6, 12), roofAccentMat);
+      pylon.position.set(0, 2.3, length - 0.8);
+      armGroup.add(pylon);
+
+      [-0.55, 0.55].forEach((wx) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.22, 14), bellowsMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, 0.38, length - 0.8);
+        armGroup.add(wheel);
+      });
+
+      // Streamlined Flush Aircraft Docking Cab Head at end of Garbarata (cleanly aligned with tunnel width)
+      const cabHead = new THREE.Mesh(new THREE.BoxGeometry(2.34, 1.9, 1.35), jetMat);
+      cabHead.position.set(0, 5.55, length + 0.2);
+      cabHead.castShadow = true;
+      armGroup.add(cabHead);
+
+      // Dark Accordion Rubber Bellows Canopy Bumper at the tip of the Docking Cab
+      const bellows = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.08, 1.08, 1.85, 16, 1, false, -Math.PI / 2, Math.PI),
+        bellowsMat
+      );
+      bellows.position.set(0, 5.55, length + 0.72);
+      armGroup.add(bellows);
+
+      parent.add(armGroup);
+    };
 
     SULTAN_HASANUDDIN_GATES.forEach((gate) => {
       const bridgeGroup = new THREE.Group();
       bridgeGroup.position.set(gate.rootX, 0, gate.rootZ);
       bridgeGroup.rotation.y = gate.angleRad;
 
-      // Fixed Rotunda Node at terminal facade
-      const rootNode = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 3.2, 16), jetMat);
-      rootNode.position.set(0, 4.6, 0);
+      // Fixed Rotunda Node at terminal facade (with dark floor & white wall)
+      const rootFloor = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.35, 16), darkFloorMat);
+      rootFloor.position.set(0, 4.65, 0);
+      bridgeGroup.add(rootFloor);
+
+      const rootNode = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 2.3, 16), jetMat);
+      rootNode.position.set(0, 4.4, 0);
       rootNode.castShadow = true;
       bridgeGroup.add(rootNode);
 
-      // Telescopic Garbarata Tunnel (Interactive for Macro Zone 4)
-      const tunnelGeo = new THREE.BoxGeometry(2.3, 2.6, gate.length);
-      const tunnelMesh = new THREE.Mesh(tunnelGeo, jetGlassMat.clone());
-      tunnelMesh.position.set(0, 4.6, gate.length / 2);
-      tunnelMesh.castShadow = true;
-      bridgeGroup.add(tunnelMesh);
-      this.addZoneMesh('macro-4', tunnelMesh);
-
-      // Steel Roof & Floor Frame on Garbarata
-      const roofCap = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.25, gate.length), jetMat);
-      roofCap.position.set(0, 6.0, gate.length / 2);
-      bridgeGroup.add(roofCap);
-
-      // Hydraulic Wheel Bogie Pylon at end of Garbarata
-      const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 4.6, 10), roofAccentMat);
-      pylon.position.set(0, 2.3, gate.length - 1.2);
-      bridgeGroup.add(pylon);
-
-      // Aircraft Docking Cab Head
-      const cabHead = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3.0, 14), jetMat);
-      cabHead.position.set(0, 4.5, gate.length);
-      cabHead.castShadow = true;
-      bridgeGroup.add(cabHead);
+      // Single Clean Articulated Garbarata Arm (Gate 01 twin arm removed as requested)
+      buildJetBridgeArm(bridgeGroup, gate.length, 0, 0);
 
       // Gate Number Sign Badge above each Garbarata
       const gateBadge = this.createLabelSprite(
@@ -896,7 +1986,7 @@ export class AirportSceneManager {
         6.5,
         2.2
       );
-      gateBadge.position.set(0, 7.6, gate.length * 0.45);
+      gateBadge.position.set(0, 7.8, gate.length * 0.45);
       bridgeGroup.add(gateBadge);
 
       terminalGroup.add(bridgeGroup);
@@ -962,9 +2052,6 @@ export class AirportSceneManager {
     return sprite;
   }
 
-  /**
-   * Floating 3D Architectural Labels for the Sultan Hasanuddin Complex
-   */
   /**
    * Floating 3D Architectural Labels for the Sultan Hasanuddin Complex
    */
@@ -1102,8 +2189,8 @@ export class AirportSceneManager {
       const pz = gate.rootZ + dirZ * distFromRoot;
 
       const plane = this.createProceduralAirliner(
-        gate.liveryColor || 0x0284c7,
-        gate.tailColor || 0x0369a1,
+        gate.liveryColor || 0x2563eb,
+        gate.tailColor || 0x1d4ed8,
         !!gate.isWideBody
       );
       plane.position.set(px, 0.4, pz);
@@ -1116,109 +2203,428 @@ export class AirportSceneManager {
   }
 
   /**
-   * Multi-part Procedural Commercial Jetliner (Narrow-body B737/A320 & Wide-body A330/B777)
+   * Creates a High-Resolution "Fahrun Air" Side Livery Texture (with Forward & Rear Passenger Doors,
+   * Row of Rounded-Rectangle Cabin Windows, and Bold Blue "Fahrun Air" Title Lettering)
+   * matching /public/assets/aistudio/image_86f973fd.png
+   */
+  private createFahrunAirSideTexture(isRightSide: boolean): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, 1024, 256);
+
+    // Coordinate helper so nose is at the front on both left (+X) and right (-X) fuselage sides
+    // On left side (+X normal, plane rotated Y = +PI/2): +U (+X of canvas) maps to -Z (tail), so nose (+Z) is at U=0 (left of canvas)
+    // On right side (-X normal, plane rotated Y = -PI/2): +U (+X of canvas) maps to +Z (nose), so nose (+Z) is at U=1024 (right of canvas)
+    const mapX = (xFromNose: number, width: number = 0) =>
+      isRightSide ? 1024 - xFromNose - width : xFromNose;
+
+    // 1. Forward Passenger Boarding Door (ahead of wing, near "Fahrun Air" title)
+    const drawDoor = (xFromNose: number) => {
+      const dx = mapX(xFromNose, 48);
+      ctx.fillStyle = '#e0e7ff';
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.roundRect(dx, 92, 48, 86, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      // Door window porthole
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.roundRect(dx + 14, 106, 20, 22, 5);
+      ctx.fill();
+    };
+
+    drawDoor(220); // Forward cabin door
+    drawDoor(760); // Rear cabin door
+
+    // 2. Row of Dark Rounded-Rectangle Cabin Windows (from mid-forward to rear door)
+    ctx.fillStyle = '#0f172a';
+    ctx.strokeStyle = '#1d4ed8';
+    ctx.lineWidth = 2.5;
+    for (let wx = 310; wx <= 710; wx += 36) {
+      const rx = mapX(wx, 20);
+      ctx.beginPath();
+      ctx.roundRect(rx, 118, 20, 30, 6);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // 3. Bold Blue "Fahrun Air" Livery Title along the Forward Upper Fuselage (matching image_86f973fd.png)
+    ctx.save();
+    const textCenterX = isRightSide ? 1024 - 265 : 265;
+    ctx.translate(textCenterX, 72);
+    ctx.fillStyle = '#2563eb';
+    ctx.font = 'italic 900 68px "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Fahrun Air', 0, 0);
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  /**
+   * 3D "Fahrun Air" Commercial Jetliner Mockup (Matching /public/assets/aistudio/image_86f973fd.png):
+   * - Crisp White Upper Fuselage + Blue Lower Belly Fairing (#2563eb / #38bdf8)
+   * - "Fahrun Air" Blue Livery Lettering, Forward/Rear Doors & Cabin Windows along both sides
+   * - Dark Cockpit Windscreen Visor with Blue Trim
+   * - Swept Tapered Main Wings with 4 Underwing Turbofan Engines (2 per wing with blue/white cowlings & cream intake rings)
+   * - Tall Swept Blue Vertical Stabilizer (Tailfin) + Swept White Horizontal Tailplanes
+   * - Nose & Main Landing Gear
    */
   private createProceduralAirliner(
-    accentColorHex: number,
-    tailColorHex: number,
+    _accentColorHex: number,
+    _tailColorHex: number,
     isWideBody: boolean
   ): THREE.Group {
     const plane = new THREE.Group();
 
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      metalness: 0.35,
+    const whiteBodyMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      metalness: 0.15,
+      roughness: 0.22,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.15,
+    });
+    const fahrunBlueMat = new THREE.MeshPhysicalMaterial({
+      color: 0x2563eb, // Fahrun Air signature blue belly & tailfin
+      metalness: 0.25,
       roughness: 0.25,
+      clearcoat: 0.5,
     });
-    const accentMat = new THREE.MeshStandardMaterial({
-      color: accentColorHex,
-      metalness: 0.3,
-      roughness: 0.3,
-    });
-    const tailMat = new THREE.MeshStandardMaterial({
-      color: tailColorHex,
-      metalness: 0.35,
+    const skyBlueAccentMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      metalness: 0.25,
       roughness: 0.28,
     });
-    const glassMat = new THREE.MeshPhysicalMaterial({
+    const wingWhiteMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      metalness: 0.22,
+      roughness: 0.28,
+    });
+    const wingEdgeMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      metalness: 0.5,
+      roughness: 0.35,
+    });
+    const intakeCreamMat = new THREE.MeshStandardMaterial({
+      color: 0xfef3c7, // Warm cream/beige engine intake ring from reference illustration
+      roughness: 0.32,
+      metalness: 0.18,
+    });
+    const darkFanMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.45,
+      metalness: 0.6,
+    });
+    const cockpitGlassMat = new THREE.MeshPhysicalMaterial({
       color: 0x0f172a,
-      roughness: 0.1,
-      metalness: 0.8,
+      roughness: 0.08,
+      metalness: 0.85,
+      clearcoat: 1.0,
     });
 
-    // 1. Fuselage
-    const fuseGeo = new THREE.CylinderGeometry(1.3, 1.3, 18, 16);
-    const fuse = new THREE.Mesh(fuseGeo, bodyMat);
-    fuse.rotation.x = Math.PI / 2;
-    fuse.position.y = 2.4;
-    fuse.castShadow = true;
-    plane.add(fuse);
+    // 1. Main Cylindrical Upper White Fuselage (Z: -6.8 to +7.8, Length = 14.6m)
+    const fuseRadius = 1.42;
+    const fuseLen = 14.6;
+    const upperFuseGeo = new THREE.CylinderGeometry(fuseRadius, fuseRadius, fuseLen, 28);
+    const upperFuse = new THREE.Mesh(upperFuseGeo, whiteBodyMat);
+    upperFuse.rotation.x = Math.PI / 2;
+    upperFuse.position.set(0, 2.55, 0.5);
+    upperFuse.castShadow = true;
+    upperFuse.receiveShadow = true;
+    plane.add(upperFuse);
 
-    // Livery cheatline stripe along fuselage
-    const stripeGeo = new THREE.BoxGeometry(2.68, 0.32, 16.5);
-    const stripe = new THREE.Mesh(stripeGeo, accentMat);
-    stripe.position.set(0, 2.5, 0.4);
-    plane.add(stripe);
+    // 2. Blue Lower Belly / Underside Hull Fairing running from Nose to Tail (matching image_86f973fd.png)
+    const bellyGeo = new THREE.CylinderGeometry(
+      fuseRadius * 1.015,
+      fuseRadius * 1.015,
+      fuseLen + 0.4,
+      28,
+      1,
+      false,
+      Math.PI * 0.62,
+      Math.PI * 0.76
+    );
+    const bellyMesh = new THREE.Mesh(bellyGeo, fahrunBlueMat);
+    bellyMesh.rotation.x = Math.PI / 2;
+    bellyMesh.position.set(0, 2.48, 0.5);
+    bellyMesh.castShadow = true;
+    plane.add(bellyMesh);
 
-    // Nose Cone
-    const noseGeo = new THREE.ConeGeometry(1.3, 3.2, 16);
-    const nose = new THREE.Mesh(noseGeo, bodyMat);
-    nose.rotation.x = -Math.PI / 2;
-    nose.position.set(0, 2.4, 10.6);
-    plane.add(nose);
+    // 3. Sculpted Aerodynamic Rounded Nose Cone (White Top + Blue Chin)
+    const noseSphereGeo = new THREE.SphereGeometry(fuseRadius, 28, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+    const noseCone = new THREE.Mesh(noseSphereGeo, whiteBodyMat);
+    noseCone.rotation.x = Math.PI / 2;
+    noseCone.scale.set(1.0, 2.15, 0.96);
+    noseCone.position.set(0, 2.50, 7.8);
+    noseCone.castShadow = true;
+    plane.add(noseCone);
 
-    // Cockpit windows
-    const cockpitGeo = new THREE.BoxGeometry(1.4, 0.5, 1.2);
-    const cockpit = new THREE.Mesh(cockpitGeo, glassMat);
-    cockpit.position.set(0, 2.9, 9.6);
-    cockpit.rotation.x = -0.3;
-    plane.add(cockpit);
+    const noseBlueChinGeo = new THREE.SphereGeometry(
+      fuseRadius * 1.01,
+      24,
+      16,
+      Math.PI * 0.12,
+      Math.PI * 0.76,
+      0,
+      Math.PI * 0.48
+    );
+    const noseBlueChin = new THREE.Mesh(noseBlueChinGeo, skyBlueAccentMat);
+    noseBlueChin.rotation.x = Math.PI / 2;
+    noseBlueChin.scale.set(1.0, 2.12, 0.95);
+    noseBlueChin.position.set(0, 2.42, 7.8);
+    plane.add(noseBlueChin);
 
-    // 2. Main Swept Wings
-    const wingGeo = new THREE.BoxGeometry(19.5, 0.22, 3.8);
-    const wings = new THREE.Mesh(wingGeo, bodyMat);
-    wings.position.set(0, 2.1, 0.5);
-    wings.castShadow = true;
-    plane.add(wings);
+    // 4. Tapered Rear Tail Cone (Z: -6.8 to -11.2) with Blue Underside Sweep
+    const tailConeGeo = new THREE.CylinderGeometry(0.42, fuseRadius, 4.5, 24);
+    const tailCone = new THREE.Mesh(tailConeGeo, whiteBodyMat);
+    tailCone.rotation.x = -Math.PI / 2;
+    tailCone.position.set(0, 2.68, -9.05);
+    tailCone.castShadow = true;
+    plane.add(tailCone);
 
-    // Wingtips (Winglets)
-    const wingletGeo = new THREE.BoxGeometry(0.18, 1.15, 0.9);
-    const leftWinglet = new THREE.Mesh(wingletGeo, accentMat);
-    leftWinglet.position.set(-9.75, 2.65, 0.5);
-    plane.add(leftWinglet);
+    const tailBellyConeGeo = new THREE.CylinderGeometry(
+      0.44,
+      fuseRadius * 1.01,
+      4.5,
+      24,
+      1,
+      false,
+      Math.PI * 0.65,
+      Math.PI * 0.7
+    );
+    const tailBellyCone = new THREE.Mesh(tailBellyConeGeo, fahrunBlueMat);
+    tailBellyCone.rotation.x = Math.PI / 2;
+    tailBellyCone.position.set(0, 2.64, -9.05);
+    plane.add(tailBellyCone);
 
-    const rightWinglet = new THREE.Mesh(wingletGeo, accentMat);
-    rightWinglet.position.set(9.75, 2.65, 0.5);
-    plane.add(rightWinglet);
+    // 5. Curved Dark Cockpit Windscreen Visor with Blue Frame Trim
+    const visorBorder = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.12, 1.24, 0.56, 20, 1, false, -Math.PI * 0.38, Math.PI * 0.76),
+      skyBlueAccentMat
+    );
+    visorBorder.position.set(0, 2.86, 8.55);
+    visorBorder.rotation.x = 0.24;
+    plane.add(visorBorder);
 
-    // 3. Jet Engines (Turbofans under each wing)
-    const engineGeo = new THREE.CylinderGeometry(0.72, 0.72, 3.2, 14);
-    const engineMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.3 });
+    const cockpitVisor = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.10, 1.22, 0.44, 20, 1, false, -Math.PI * 0.35, Math.PI * 0.70),
+      cockpitGlassMat
+    );
+    cockpitVisor.position.set(0, 2.88, 8.62);
+    cockpitVisor.rotation.x = 0.24;
+    plane.add(cockpitVisor);
 
-    const leftEngine = new THREE.Mesh(engineGeo, engineMat);
-    leftEngine.rotation.x = Math.PI / 2;
-    leftEngine.position.set(-4.6, 1.3, 1.2);
-    plane.add(leftEngine);
+    // 6. "Fahrun Air" Livery Decal Panels on Left (+X) & Right (-X) Sides of Fuselage
+    const leftLiveryMat = new THREE.MeshBasicMaterial({
+      map: this.createFahrunAirSideTexture(false),
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    });
+    const rightLiveryMat = new THREE.MeshBasicMaterial({
+      map: this.createFahrunAirSideTexture(true),
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    });
 
-    const rightEngine = new THREE.Mesh(engineGeo, engineMat);
-    rightEngine.rotation.x = Math.PI / 2;
-    rightEngine.position.set(4.6, 1.3, 1.2);
-    plane.add(rightEngine);
+    const sideDecalGeo = new THREE.PlaneGeometry(14.0, 2.1);
+    const leftDecal = new THREE.Mesh(sideDecalGeo, leftLiveryMat);
+    leftDecal.position.set(fuseRadius + 0.03, 2.72, 0.8);
+    leftDecal.rotation.y = Math.PI / 2;
+    plane.add(leftDecal);
 
-    // 4. Vertical Stabilizer (Tailfin)
-    const tailGeo = new THREE.BoxGeometry(0.24, 4.4, 3.4);
-    const tail = new THREE.Mesh(tailGeo, tailMat);
-    tail.position.set(0, 4.3, -8.0);
-    tail.rotation.x = -0.35;
-    plane.add(tail);
+    const rightDecal = new THREE.Mesh(sideDecalGeo, rightLiveryMat);
+    rightDecal.position.set(-(fuseRadius + 0.03), 2.72, 0.8);
+    rightDecal.rotation.y = -Math.PI / 2;
+    plane.add(rightDecal);
 
-    // Horizontal Stabilizers
-    const hStabGeo = new THREE.BoxGeometry(6.8, 0.16, 1.9);
-    const hStab = new THREE.Mesh(hStabGeo, bodyMat);
-    hStab.position.set(0, 2.7, -8.5);
-    plane.add(hStab);
+    // 7. Custom Swept-Back Tapered Main Wings (Left & Right)
+    [-1, 1].forEach((side) => {
+      const wingShape = new THREE.Shape();
+      wingShape.moveTo(0, 2.8);                  // Wing root leading edge
+      wingShape.lineTo(side * 10.6, -1.6);       // Wingtip leading edge
+      wingShape.lineTo(side * 10.6, -2.9);       // Wingtip trailing edge
+      wingShape.lineTo(0, -1.2);                 // Wing root trailing edge
+      wingShape.closePath();
 
-    const s = isWideBody ? 1.12 : 0.88;
+      const wingGeo = new THREE.ExtrudeGeometry(wingShape, {
+        depth: 0.22,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.06,
+        bevelThickness: 0.04,
+      });
+      wingGeo.rotateX(-Math.PI / 2);
+      const wingMesh = new THREE.Mesh(wingGeo, wingWhiteMat);
+      wingMesh.position.set(side * 0.9, 2.05, 0.8);
+      wingMesh.castShadow = true;
+      wingMesh.receiveShadow = true;
+      plane.add(wingMesh);
+
+      // Leading-Edge Slats Trim Strip (matching textured leading edge in reference illustration)
+      const slatLen = 10.9;
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(slatLen, 0.14, 0.24), wingEdgeMat);
+      slat.position.set(side * 5.8, 2.14, 1.55);
+      slat.rotation.y = side * 0.39;
+      plane.add(slat);
+    });
+
+    // 8. FOUR Underwing Turbofan Engines (2 per Wing — Inner & Outer Nacelles matching image_86f973fd.png)
+    const enginePlacements = [
+      { x: -3.8, z: 1.55, scale: 1.0 },
+      { x: -6.9, z: 0.35, scale: 0.92 },
+      { x: 3.8,  z: 1.55, scale: 1.0 },
+      { x: 6.9,  z: 0.35, scale: 0.92 },
+    ];
+    enginePlacements.forEach((ep) => {
+      const engGroup = new THREE.Group();
+      engGroup.position.set(ep.x, 1.32, ep.z);
+      engGroup.scale.setScalar(ep.scale);
+
+      // Aerodynamic Pylon Strut connecting Engine to Wing Underside
+      const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.75, 1.65), wingEdgeMat);
+      pylon.position.set(0, 0.55, -0.15);
+      engGroup.add(pylon);
+
+      // Rear Blue Engine Nacelle Barrel
+      const rearBarrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.68, 0.58, 1.45, 20),
+        skyBlueAccentMat
+      );
+      rearBarrel.rotation.x = Math.PI / 2;
+      rearBarrel.position.set(0, 0, -0.45);
+      rearBarrel.castShadow = true;
+      engGroup.add(rearBarrel);
+
+      // Forward Crisp White Engine Cowling Barrel
+      const frontCowling = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.72, 0.68, 1.25, 20),
+        whiteBodyMat
+      );
+      frontCowling.rotation.x = Math.PI / 2;
+      frontCowling.position.set(0, 0, 0.65);
+      frontCowling.castShadow = true;
+      engGroup.add(frontCowling);
+
+      // Warm Cream/Beige Intake Lip Ring at Front of Engine (distinctive feature in image_86f973fd.png)
+      const intakeRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.64, 0.11, 14, 24),
+        intakeCreamMat
+      );
+      intakeRing.position.set(0, 0, 1.28);
+      engGroup.add(intakeRing);
+
+      // Dark Recessed Turbofan Blades Core & Exhaust Cone
+      const fanDisc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.58, 0.58, 0.25, 18),
+        darkFanMat
+      );
+      fanDisc.rotation.x = Math.PI / 2;
+      fanDisc.position.set(0, 0, 1.12);
+      engGroup.add(fanDisc);
+
+      const exhaustNozzle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.45, 0.32, 0.55, 16),
+        darkFanMat
+      );
+      exhaustNozzle.rotation.x = -Math.PI / 2;
+      exhaustNozzle.position.set(0, 0, -1.32);
+      engGroup.add(exhaustNozzle);
+
+      plane.add(engGroup);
+    });
+
+    // 9. Tall Swept Blue Vertical Stabilizer (Tailfin) with White Dorsal Fillet (matching image_86f973fd.png)
+    const finShape = new THREE.Shape();
+    finShape.moveTo(0, 0);          // Front dorsal root (Z = -6.2)
+    finShape.lineTo(-3.2, 4.8);     // Swept top leading edge
+    finShape.lineTo(-4.8, 4.95);    // Top fin cap
+    finShape.lineTo(-4.4, 0);       // Rear trailing edge (Z = -10.6)
+    finShape.closePath();
+
+    const finGeo = new THREE.ExtrudeGeometry(finShape, {
+      depth: 0.24,
+      bevelEnabled: true,
+      bevelSegments: 2,
+      steps: 1,
+      bevelSize: 0.05,
+      bevelThickness: 0.04,
+    });
+    finGeo.rotateY(Math.PI / 2); // Maps shape +X -> -Z, shape +Y -> +Y
+    const tailFin = new THREE.Mesh(finGeo, fahrunBlueMat);
+    tailFin.position.set(-0.12, 3.25, -6.2);
+    tailFin.castShadow = true;
+    plane.add(tailFin);
+
+    // Crisp White Leading-Edge Strip along the Vertical Tailfin
+    const finLeadingStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 5.6, 0.32),
+      whiteBodyMat
+    );
+    finLeadingStrip.position.set(0, 5.6, -7.75);
+    finLeadingStrip.rotation.x = -0.58;
+    plane.add(finLeadingStrip);
+
+    // 10. Swept White Horizontal Stabilizers (Tailplanes) on Left & Right of Tail Cone
+    [-1, 1].forEach((side) => {
+      const hStabShape = new THREE.Shape();
+      hStabShape.moveTo(0, 1.1);
+      hStabShape.lineTo(side * 3.8, -0.6);
+      hStabShape.lineTo(side * 3.8, -1.4);
+      hStabShape.lineTo(0, -0.5);
+      hStabShape.closePath();
+
+      const hStabGeo = new THREE.ExtrudeGeometry(hStabShape, {
+        depth: 0.14,
+        bevelEnabled: false,
+      });
+      hStabGeo.rotateX(-Math.PI / 2);
+      const hStabMesh = new THREE.Mesh(hStabGeo, wingWhiteMat);
+      hStabMesh.position.set(side * 0.45, 2.85, -9.2);
+      hStabMesh.castShadow = true;
+      plane.add(hStabMesh);
+    });
+
+    // 11. Nose & Main Landing Gear (Struts & Twin Tires)
+    const noseStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.25, 10), wingEdgeMat);
+    noseStrut.position.set(0, 0.95, 7.8);
+    plane.add(noseStrut);
+
+    [-0.22, 0.22].forEach((wx) => {
+      const nWheel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.16, 14), darkFanMat);
+      nWheel.rotation.z = Math.PI / 2;
+      nWheel.position.set(wx, 0.32, 7.8);
+      plane.add(nWheel);
+    });
+
+    [-2.1, 2.1].forEach((gx) => {
+      const mStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.45, 10), wingEdgeMat);
+      mStrut.position.set(gx, 1.05, 0.2);
+      plane.add(mStrut);
+
+      [-0.32, 0.32].forEach((wz) => {
+        const mWheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.24, 14), darkFanMat);
+        mWheel.rotation.z = Math.PI / 2;
+        mWheel.position.set(gx, 0.38, 0.2 + wz);
+        plane.add(mWheel);
+      });
+    });
+
+    const s = isWideBody ? 1.12 : 0.90;
     plane.scale.set(s, s, s);
     return plane;
   }
@@ -2668,60 +4074,215 @@ export class AirportSceneManager {
   }
 
   /**
-   * IP Speaker Nodes in 3D Space
+   * 3D Pixar Animation IP Speaker Nodes across Every Zone:
+   * - Ceiling Speaker ('ceiling'): Dipasang di plafon terminal (Ruang Tunggu, Check-in, Bagasi)
+   * - Column Speaker ('column'): Dipasang di dinding pilar / koridor panjang dengan jangkauan suara horizontal jauh
+   * - Horn Speaker ('horn'): Dipasang di area bising & terbuka luar ruangan (Apron, Garbarata, Drop-off, Parkir)
    */
   private buildSpeakerNodes() {
     const speakerGroup = new THREE.Group();
 
     this.speakers.forEach((speaker) => {
+      const category: SpeakerCategory =
+        speaker.category ||
+        (speaker.macroZoneId === 'macro-4' || speaker.macroZoneId === 'macro-5'
+          ? 'horn'
+          : 'ceiling');
+
       const node = new THREE.Group();
       node.position.set(...speaker.position);
-      node.userData = { type: 'speaker', speakerId: speaker.id };
+      node.userData = {
+        type: 'speaker',
+        speakerId: speaker.id,
+        category,
+      };
 
-      const isHorn = speaker.macroZoneId === 'macro-5' || speaker.macroZoneId === 'macro-4';
+      // Rotate directional speakers (Column & Horn) around Y axis
+      const rotY = speaker.rotationY ?? 0;
+      const modelGroup = new THREE.Group();
+      modelGroup.rotation.y = rotY;
+      node.add(modelGroup);
 
-      if (isHorn) {
-        const hornGeo = new THREE.ConeGeometry(0.7, 1.2, 12);
-        const hornMat = new THREE.MeshStandardMaterial({
-          color: 0x475569,
-          metalness: 0.6,
-          roughness: 0.3,
-        });
-        const horn = new THREE.Mesh(hornGeo, hornMat);
-        horn.rotation.x = Math.PI / 2;
-        node.add(horn);
+      const ledColor = this.getSpeakerColor(speaker.status);
 
-        const bracketGeo = new THREE.BoxGeometry(0.2, 0.8, 0.4);
-        const bracket = new THREE.Mesh(bracketGeo, hornMat);
-        bracket.position.set(0, 0.5, -0.4);
-        node.add(bracket);
+      if (category === 'ceiling') {
+        this.createPixarCeilingSpeaker(modelGroup, ledColor, speaker.id);
+      } else if (category === 'column') {
+        this.createPixarColumnSpeaker(modelGroup, ledColor, speaker.id);
       } else {
-        const discGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.15, 16);
-        const discMat = new THREE.MeshStandardMaterial({
-          color: 0xffffff,
-          roughness: 0.3,
-          metalness: 0.1,
-        });
-        const disc = new THREE.Mesh(discGeo, discMat);
-        node.add(disc);
-
-        const grilleGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.18, 16);
-        const grilleMat = new THREE.MeshStandardMaterial({
-          color: 0x334155,
-          roughness: 0.7,
-        });
-        const grille = new THREE.Mesh(grilleGeo, grilleMat);
-        node.add(grille);
+        this.createPixarHornSpeaker(modelGroup, ledColor, speaker.id);
       }
 
-      const ledRingGeo = new THREE.TorusGeometry(0.65, 0.08, 8, 16);
-      const ledColor = this.getSpeakerColor(speaker.status);
-      const ledMat = new THREE.MeshBasicMaterial({ color: ledColor });
-      const ledRing = new THREE.Mesh(ledRingGeo, ledMat);
-      ledRing.rotation.x = Math.PI / 2;
-      node.add(ledRing);
+      // Floating 3D Pixar Category Pill Sprite above speaker for instant visual identification
+      const badgeTex = this.getSpeakerBadgeTexture(category);
+      const badgeMat = new THREE.SpriteMaterial({
+        map: badgeTex,
+        transparent: true,
+        depthTest: false,
+      });
+      const badgeSprite = new THREE.Sprite(badgeMat);
+      badgeSprite.scale.set(3.2, 0.92, 1);
+      badgeSprite.position.set(0, category === 'column' ? 2.15 : 1.65, 0);
+      badgeSprite.renderOrder = 25;
+      node.add(badgeSprite);
 
-      const pulseGeo = new THREE.RingGeometry(0.8, 1.0, 24);
+      // Generous invisible raycast hit proxy for effortless clicking
+      const proxyGeo = new THREE.SphereGeometry(2.1, 10, 10);
+      const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+      const proxy = new THREE.Mesh(proxyGeo, proxyMat);
+      proxy.userData = { type: 'speaker', speakerId: speaker.id, category };
+      node.add(proxy);
+
+      this.speakerMeshes.set(speaker.id, node);
+      this.interactableObjects.push(proxy);
+      speakerGroup.add(node);
+    });
+
+    this.scene.add(speakerGroup);
+  }
+
+  /**
+   * 1. CEILING SPEAKER (3D Pixar Animation Style — Matches Left Card in Reference Image):
+   * - Soft contoured glossy pearl-white circular flush-mount bezel ring
+   * - Perforated charcoal acoustic mesh grille & sculpted woofer cone with silver center dome
+   * - Side Red & Black spring terminal clip block (khas gambar referensi Ceiling Speaker)
+   * - Top ceiling plafon mount plate & glowing status LED halo
+   */
+  private createPixarCeilingSpeaker(
+    parent: THREE.Group,
+    ledColor: number,
+    speakerId: string
+  ) {
+    const whiteBezelMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf8fafc,
+      roughness: 0.22,
+      metalness: 0.08,
+      clearcoat: 0.65,
+      clearcoatRoughness: 0.2,
+    });
+    const softGreyMat = new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      roughness: 0.35,
+      metalness: 0.25,
+    });
+    const darkGrilleMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.55,
+      metalness: 0.3,
+    });
+    const wooferConeMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.4,
+      metalness: 0.35,
+    });
+    const silverCapMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.2,
+      metalness: 0.8,
+    });
+
+    // Plafon ceiling tile disc halo (shows it is mounted flush on the terminal ceiling)
+    const ceilingTile = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.38, 1.38, 0.08, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.18,
+      })
+    );
+    ceilingTile.position.set(0, 0.22, 0);
+    parent.add(ceilingTile);
+
+    // Main Contoured Pixar White Outer Body Cylinder
+    const bodyCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.95, 1.05, 0.42, 28),
+      whiteBezelMat
+    );
+    bodyCyl.castShadow = true;
+    parent.add(bodyCyl);
+
+    // Plump Rounded Pixar White Bezel Rim (Torus) — top & bottom so it looks great from both below & cutaway top view
+    [-0.14, 0.14].forEach((ry) => {
+      const bezelRim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.86, 0.22, 16, 32),
+        whiteBezelMat
+      );
+      bezelRim.rotation.x = Math.PI / 2;
+      bezelRim.position.y = ry;
+      bezelRim.castShadow = true;
+      parent.add(bezelRim);
+    });
+
+    // Inner Recessed Acoustic Baffle & Perforated Mesh Grille (Top & Bottom faces)
+    const baffleDisc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.74, 0.74, 0.46, 24),
+      darkGrilleMat
+    );
+    parent.add(baffleDisc);
+
+    // Sculpted Woofer Cone & Silver Dustcap Dome (visible from both top cutaway & bottom interior)
+    [-0.24, 0.24].forEach((wy) => {
+      const wooferRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.50, 0.06, 12, 24),
+        softGreyMat
+      );
+      wooferRing.rotation.x = Math.PI / 2;
+      wooferRing.position.y = wy;
+      parent.add(wooferRing);
+
+      const cone = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.46, 0.20, 0.14, 20),
+        wooferConeMat
+      );
+      cone.position.y = wy;
+      parent.add(cone);
+
+      const dustCap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 16, 12),
+        silverCapMat
+      );
+      dustCap.scale.set(1, 0.45, 1);
+      dustCap.position.y = wy + (wy > 0 ? 0.05 : -0.05);
+      parent.add(dustCap);
+    });
+
+    // Signature Side Terminal Clip Block with Red & Black Push-Terminals (as in Reference Image)
+    const clipHousing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.34, 0.48),
+      whiteBezelMat
+    );
+    clipHousing.position.set(1.06, 0.04, 0);
+    parent.add(clipHousing);
+
+    const redClip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.18, 12),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 })
+    );
+    redClip.rotation.z = -0.35;
+    redClip.position.set(1.22, 0.14, 0.11);
+    parent.add(redClip);
+
+    const blackClip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.18, 12),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
+    );
+    blackClip.rotation.z = -0.35;
+    blackClip.position.set(1.22, 0.14, -0.11);
+    parent.add(blackClip);
+
+    // Status LED Halo Ring around the Ceiling Speaker Bezel
+    const ledMat = new THREE.MeshBasicMaterial({ color: ledColor });
+    const ledRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.14, 0.07, 10, 28),
+      ledMat
+    );
+    ledRing.rotation.x = Math.PI / 2;
+    ledRing.userData = { isStatusLed: true };
+    parent.add(ledRing);
+
+    // 2 Concentric Downward/Radial Acoustic Wave Rings
+    [0, 0.5].forEach((phaseOffset, idx) => {
+      const pulseGeo = new THREE.RingGeometry(1.05, 1.32, 32);
       const pulseMat = new THREE.MeshBasicMaterial({
         color: 0x38bdf8,
         transparent: true,
@@ -2731,22 +4292,493 @@ export class AirportSceneManager {
       });
       const pulse = new THREE.Mesh(pulseGeo, pulseMat);
       pulse.rotation.x = Math.PI / 2;
-      pulse.userData = { isWaveRing: true, baseScale: 1.0 };
-      node.add(pulse);
+      pulse.position.y = -0.25 - idx * 0.35;
+      pulse.userData = {
+        isWaveRing: true,
+        speakerId,
+        category: 'ceiling',
+        phaseOffset,
+        baseY: -0.25,
+      };
+      parent.add(pulse);
       this.soundWaveRings.push(pulse);
+    });
+  }
 
-      const proxyGeo = new THREE.SphereGeometry(1.3, 8, 8);
-      const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
-      const proxy = new THREE.Mesh(proxyGeo, proxyMat);
-      proxy.userData = { type: 'speaker', speakerId: speaker.id };
-      node.add(proxy);
-
-      this.speakerMeshes.set(speaker.id, node);
-      this.interactableObjects.push(proxy);
-      speakerGroup.add(node);
+  /**
+   * 2. COLUMN SPEAKER (3D Pixar Animation Style — Matches Center Card in Reference Image):
+   * - Tall vertical rectangular enclosure with rounded Pixar metallic silver-white side rails & end-caps
+   * - Dark recessed front baffle with 5 vertically stacked circular driver cones + silver trim rings
+   * - Mounted on a structural pillar / wall bracket with horizontal long-throw sound dispersion
+   */
+  private createPixarColumnSpeaker(
+    parent: THREE.Group,
+    ledColor: number,
+    speakerId: string
+  ) {
+    const bodySilverMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.24,
+      metalness: 0.35,
+      clearcoat: 0.55,
+    });
+    const trimChromeMat = new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      roughness: 0.2,
+      metalness: 0.78,
+    });
+    const baffleMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.55,
+      metalness: 0.25,
+    });
+    const coneMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.35,
+      metalness: 0.4,
+    });
+    const bracketMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4,
+      metalness: 0.65,
+    });
+    const pillarMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.5,
+      metalness: 0.2,
     });
 
-    this.scene.add(speakerGroup);
+    const colHeight = 2.45;
+    const colWidth = 0.82;
+    const colDepth = 0.58;
+
+    // Reference Structural Pillar / Wall Column behind the speaker so it is visibly pillar-mounted
+    const miniPillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.42, 3.1, 16),
+      pillarMat
+    );
+    miniPillar.position.set(0, 0, -0.78);
+    parent.add(miniPillar);
+
+    // Upper & Lower Heavy-Duty Wall/Pillar Mounting Brackets
+    [-0.75, 0.75].forEach((by) => {
+      const bracketArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.36, 0.22, 0.55),
+        bracketMat
+      );
+      bracketArm.position.set(0, by, -0.42);
+      parent.add(bracketArm);
+    });
+
+    // Main Vertical Column Enclosure Core
+    const mainBox = new THREE.Mesh(
+      new THREE.BoxGeometry(colWidth, colHeight, colDepth),
+      bodySilverMat
+    );
+    mainBox.castShadow = true;
+    parent.add(mainBox);
+
+    // Pixar Rounded Vertical Side Rails (Left & Right Cylinders)
+    [-colWidth / 2, colWidth / 2].forEach((rx) => {
+      const sideRail = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.14, colHeight + 0.08, 16),
+        bodySilverMat
+      );
+      sideRail.position.set(rx, 0, 0.05);
+      sideRail.castShadow = true;
+      parent.add(sideRail);
+    });
+
+    // Rounded Top & Bottom Pixar End-Caps
+    [-colHeight / 2 - 0.06, colHeight / 2 + 0.06].forEach((cy) => {
+      const endCap = new THREE.Mesh(
+        new THREE.BoxGeometry(colWidth + 0.22, 0.18, colDepth + 0.12),
+        trimChromeMat
+      );
+      endCap.position.set(0, cy, 0.02);
+      parent.add(endCap);
+    });
+
+    // Dark Recessed Front Acoustic Baffle (Front +Z and Back -Z so drivers are visible from any angle)
+    const frontBaffle = new THREE.Mesh(
+      new THREE.BoxGeometry(colWidth - 0.08, colHeight - 0.16, colDepth + 0.06),
+      baffleMat
+    );
+    parent.add(frontBaffle);
+
+    // 5 Vertically Stacked Circular Woofer / Tweeter Cones (Characteristic Column Speaker Array)
+    const driverOffsetsY = [-0.84, -0.42, 0.0, 0.42, 0.84];
+    driverOffsetsY.forEach((dy, idx) => {
+      const isCenterTweeter = idx === 2;
+      const radius = isCenterTweeter ? 0.17 : 0.20;
+
+      // Chrome Trim Bezel around each driver cone
+      const driverRing = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, 0.032, 10, 20),
+        trimChromeMat
+      );
+      driverRing.position.set(0, dy, colDepth / 2 + 0.04);
+      parent.add(driverRing);
+
+      // Sculpted Dark Woofer Cone
+      const driverCone = new THREE.Mesh(
+        new THREE.CylinderGeometry(radius - 0.01, radius * 0.45, 0.08, 18),
+        coneMat
+      );
+      driverCone.rotation.x = Math.PI / 2;
+      driverCone.position.set(0, dy, colDepth / 2 + 0.02);
+      parent.add(driverCone);
+
+      // Center Phase Dome Dustcap
+      const centerDome = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 0.42, 12, 12),
+        isCenterTweeter ? trimChromeMat : coneMat
+      );
+      centerDome.scale.set(1, 1, 0.55);
+      centerDome.position.set(0, dy, colDepth / 2 + 0.05);
+      parent.add(centerDome);
+    });
+
+    // Glowing Status LED Ring around the base/top of the Column Speaker
+    const ledMat = new THREE.MeshBasicMaterial({ color: ledColor });
+    const ledRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.68, 0.065, 10, 24),
+      ledMat
+    );
+    ledRing.rotation.x = Math.PI / 2;
+    ledRing.position.set(0, colHeight / 2 + 0.22, 0);
+    ledRing.userData = { isStatusLed: true };
+    parent.add(ledRing);
+
+    // 2 Horizontal Forward-Propagating Acoustic Wave Rings (+Z direction)
+    [0, 0.5].forEach((phaseOffset) => {
+      const pulseGeo = new THREE.RingGeometry(0.65, 0.92, 28);
+      const pulseMat = new THREE.MeshBasicMaterial({
+        color: 0x10b981,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+      pulse.position.set(0, 0, colDepth / 2 + 0.35);
+      pulse.userData = {
+        isWaveRing: true,
+        speakerId,
+        category: 'column',
+        phaseOffset,
+        baseZ: colDepth / 2 + 0.35,
+      };
+      parent.add(pulse);
+      this.soundWaveRings.push(pulse);
+    });
+  }
+
+  /**
+   * 3. HORN SPEAKER (3D Pixar Animation Style — Matches Right Card in Reference Image):
+   * - Weatherproof flared conical reflex horn with thick rounded Pixar bell rim
+   * - Dark acoustic inner horn throat with prominent central cylindrical reflex phase plug
+   * - Rear cylindrical compression driver housing with cooling ribs & heavy-duty U-bracket mount
+   */
+  private createPixarHornSpeaker(
+    parent: THREE.Group,
+    ledColor: number,
+    speakerId: string
+  ) {
+    const hornOuterMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.26,
+      metalness: 0.22,
+      clearcoat: 0.5,
+    });
+    const hornInnerMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.48,
+      metalness: 0.35,
+      side: THREE.DoubleSide,
+    });
+    const driverHousingMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.32,
+      metalness: 0.55,
+    });
+    const bracketSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.4,
+      metalness: 0.7,
+    });
+    const chromeAccentMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.18,
+      metalness: 0.85,
+    });
+
+    // Rear Cylindrical Compression Driver Unit (along Z axis, at back Z = -0.75)
+    const driverCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.46, 0.42, 0.68, 22),
+      driverHousingMat
+    );
+    driverCyl.rotation.x = Math.PI / 2;
+    driverCyl.position.set(0, 0, -0.72);
+    driverCyl.castShadow = true;
+    parent.add(driverCyl);
+
+    // Rear rounded cap of compression driver
+    const driverBackCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.42, 18, 12),
+      bracketSteelMat
+    );
+    driverBackCap.scale.set(1, 1, 0.45);
+    driverBackCap.position.set(0, 0, -1.06);
+    parent.add(driverBackCap);
+
+    // Flared Conical Megaphone Horn Bell (expanding from Z = -0.38 to Z = +0.68)
+    const hornBell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.98, 0.42, 1.12, 28, 1, true),
+      hornOuterMat
+    );
+    hornBell.rotation.x = Math.PI / 2;
+    hornBell.position.set(0, 0, 0.16);
+    hornBell.castShadow = true;
+    parent.add(hornBell);
+
+    // Dark Inner Acoustic Horn Throat Cone
+    const hornInner = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.93, 0.38, 1.08, 28),
+      hornInnerMat
+    );
+    hornInner.rotation.x = Math.PI / 2;
+    hornInner.position.set(0, 0, 0.14);
+    parent.add(hornInner);
+
+    // Thick Rounded Pixar Bell Rim Lip at the front mouth (Z = +0.72)
+    const bellRim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.96, 0.13, 16, 32),
+      hornOuterMat
+    );
+    bellRim.position.set(0, 0, 0.72);
+    bellRim.castShadow = true;
+    parent.add(bellRim);
+
+    // Central Cylindrical Acoustic Reflex Core / Phase Plug inside the Horn Mouth (as in Reference Image)
+    const reflexCore = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.22, 0.78, 20),
+      driverHousingMat
+    );
+    reflexCore.rotation.x = Math.PI / 2;
+    reflexCore.position.set(0, 0, 0.34);
+    parent.add(reflexCore);
+
+    const reflexTipRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.26, 0.04, 10, 20),
+      chromeAccentMat
+    );
+    reflexTipRing.position.set(0, 0, 0.72);
+    parent.add(reflexTipRing);
+
+    const reflexCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.26, 16, 12),
+      bracketSteelMat
+    );
+    reflexCap.scale.set(1, 1, 0.45);
+    reflexCap.position.set(0, 0, 0.73);
+    parent.add(reflexCap);
+
+    // Heavy-Duty Pivoting U-Bracket Yoke & Support Post (khas Horn Speaker Outdoor)
+    const uBracketBase = new THREE.Mesh(
+      new THREE.BoxGeometry(1.36, 0.14, 0.22),
+      bracketSteelMat
+    );
+    uBracketBase.position.set(0, -0.78, -0.45);
+    parent.add(uBracketBase);
+
+    [-0.64, 0.64].forEach((bx) => {
+      const uArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.82, 0.22),
+        bracketSteelMat
+      );
+      uArm.position.set(bx, -0.38, -0.45);
+      parent.add(uArm);
+
+      // Chrome Pivot Bolt on each side of the horn body
+      const bolt = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.11, 0.16, 12),
+        chromeAccentMat
+      );
+      bolt.rotation.z = Math.PI / 2;
+      bolt.position.set(bx > 0 ? bx + 0.05 : bx - 0.05, 0, -0.45);
+      parent.add(bolt);
+    });
+
+    // Vertical Mounting Post under the U-Bracket
+    const mountPost = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.18, 0.85, 12),
+      bracketSteelMat
+    );
+    mountPost.position.set(0, -1.22, -0.45);
+    parent.add(mountPost);
+
+    // Status LED Halo Collar around the Horn Neck
+    const ledMat = new THREE.MeshBasicMaterial({ color: ledColor });
+    const ledRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.58, 0.075, 10, 24),
+      ledMat
+    );
+    ledRing.position.set(0, 0, -0.32);
+    ledRing.userData = { isStatusLed: true };
+    parent.add(ledRing);
+
+    // 2 Directional High-SPL Acoustic Wave Rings blasting forward (+Z direction)
+    [0, 0.5].forEach((phaseOffset) => {
+      const pulseGeo = new THREE.RingGeometry(0.85, 1.18, 32);
+      const pulseMat = new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const pulse = new THREE.Mesh(pulseGeo, pulseMat);
+      pulse.position.set(0, 0, 0.95);
+      pulse.userData = {
+        isWaveRing: true,
+        speakerId,
+        category: 'horn',
+        phaseOffset,
+        baseZ: 0.95,
+      };
+      parent.add(pulse);
+      this.soundWaveRings.push(pulse);
+    });
+  }
+
+  /**
+   * Generates a cached high-contrast 3D billboard badge texture for each speaker category
+   */
+  private getSpeakerBadgeTexture(category: SpeakerCategory): THREE.CanvasTexture {
+    const existing = this.speakerBadgeTextures.get(category);
+    if (existing) return existing;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 148;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const cfg =
+      category === 'ceiling'
+        ? {
+            label: 'CEILING SPEAKER',
+            sub: 'PLAFON TERMINAL',
+            bg: 'rgba(15, 23, 42, 0.92)',
+            border: '#38bdf8',
+            accent: '#38bdf8',
+          }
+        : category === 'column'
+        ? {
+            label: 'COLUMN SPEAKER',
+            sub: 'PILAR & KORIDOR',
+            bg: 'rgba(15, 23, 42, 0.92)',
+            border: '#10b981',
+            accent: '#34d399',
+          }
+        : {
+            label: 'HORN SPEAKER',
+            sub: 'APRON / DROP-OFF',
+            bg: 'rgba(15, 23, 42, 0.92)',
+            border: '#f59e0b',
+            accent: '#fbbf24',
+          };
+
+    // Rounded pill background
+    const r = 36;
+    ctx.fillStyle = cfg.bg;
+    ctx.strokeStyle = cfg.border;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.roundRect(12, 12, canvas.width - 24, canvas.height - 24, r);
+    ctx.fill();
+    ctx.stroke();
+
+    // Left category icon illustration inside badge
+    ctx.save();
+    ctx.translate(78, 74);
+    if (category === 'ceiling') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.arc(0, 0, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cfg.accent;
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (category === 'column') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.roundRect(-20, -38, 40, 76, 10);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      [-22, -7, 8, 23].forEach((cy) => {
+        ctx.beginPath();
+        ctx.arc(0, cy, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else {
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(-28, -14);
+      ctx.lineTo(24, -34);
+      ctx.lineTo(24, 34);
+      ctx.lineTo(-28, 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = cfg.accent;
+      ctx.beginPath();
+      ctx.arc(24, 0, 11, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Text labels
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 36px "Inter", "Arial Black", sans-serif';
+    ctx.fillText(cfg.label, 134, 56);
+
+    ctx.fillStyle = cfg.accent;
+    ctx.font = '700 24px "JetBrains Mono", monospace';
+    ctx.fillText(cfg.sub, 134, 98);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    this.speakerBadgeTextures.set(category, tex);
+    return tex;
+  }
+
+  /**
+   * Filter / Highlight speakers in 3D space by acoustic category ('all' | 'ceiling' | 'column' | 'horn')
+   */
+  public setSpeakerCategoryFilter(category: SpeakerCategory | 'all') {
+    this.activeCategoryFilter = category;
+    this.speakerMeshes.forEach((group) => {
+      const spkCat = group.userData.category as SpeakerCategory;
+      if (category === 'all') {
+        group.visible = true;
+        group.scale.set(1, 1, 1);
+      } else if (spkCat === category) {
+        group.visible = true;
+        group.scale.set(1.38, 1.38, 1.38);
+      } else {
+        group.visible = true;
+        group.scale.set(0.55, 0.55, 0.55);
+      }
+    });
   }
 
   private getSpeakerColor(status: IPSpeaker['status']): number {
@@ -2936,6 +4968,11 @@ export class AirportSceneManager {
     moveCamera: boolean = true,
     notifyCallback: boolean = true
   ) {
+    // Always restore full airport roofs & Lantai 2 when selecting "Semua Terminal" (null) or any zone
+    if (this.isLantai1Cutaway || this.isLantai2Cutaway) {
+      this.setCutawayMode('none');
+    }
+
     this.selectedZoneId = zoneId;
     if (notifyCallback) {
       this.callbacks.onSelectZone(zoneId);
@@ -2943,28 +4980,28 @@ export class AirportSceneManager {
 
     if (moveCamera) {
       if (zoneId === null) {
-        // Return to All-Terminal Sultan Hasanuddin Overview
+        // Return to All-Terminal Sultan Hasanuddin Overview (with full Phinisi & Vaulted Roofs visible)
         this.targetCameraPos = new THREE.Vector3(0, 82, 118);
         this.targetControlsTarget = new THREE.Vector3(-2, 2, -4);
       } else {
         switch (zoneId) {
           case 'macro-1': // Terminal Utama (3 Lantai)
-            this.targetControlsTarget = new THREE.Vector3(24, 6, -25);
-            this.targetCameraPos = new THREE.Vector3(24, 42, 24);
+            this.targetControlsTarget = new THREE.Vector3(24, 5, -24);
+            this.targetCameraPos = new THREE.Vector3(24, 48, -74);
             break;
           case 'macro-2': // Terminal Eksisting (2 Lantai · Gate 07-12)
-            this.targetControlsTarget = new THREE.Vector3(24, 5, 7);
-            this.targetCameraPos = new THREE.Vector3(24, 38, 56);
+            this.targetControlsTarget = new THREE.Vector3(24, 5, 6);
+            this.targetCameraPos = new THREE.Vector3(24, 46, -42);
             break;
           case 'macro-3': // Terminal Selatan (2 Lantai · Gate 01-06)
-            this.targetControlsTarget = new THREE.Vector3(-42, 5, 7);
-            this.targetCameraPos = new THREE.Vector3(-46, 38, 58);
+            this.targetControlsTarget = new THREE.Vector3(-42, 5, 0);
+            this.targetCameraPos = new THREE.Vector3(-42, 48, -52);
             break;
           case 'macro-4': // Apron, 12 Garbarata & Pesawat Parkir
             this.targetControlsTarget = new THREE.Vector3(-4, 4, 26);
             this.targetCameraPos = new THREE.Vector3(-4, 46, 88);
             break;
-          case 'macro-5': // Gedung Parkir, Jalanan U-Loop & Depan Terminal Utama (Landside Mockup View)
+          case 'macro-5': // Gedung Parkir, Jalanan U-Loop & Depan Terminal Utama
             this.targetControlsTarget = new THREE.Vector3(24, 4, -55);
             this.targetCameraPos = new THREE.Vector3(24, 68, -126);
             break;
@@ -3075,7 +5112,7 @@ export class AirportSceneManager {
     if (!spkGroup) return;
 
     spkGroup.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.geometry instanceof THREE.TorusGeometry) {
+      if (child instanceof THREE.Mesh && child.userData?.isStatusLed) {
         const mat = child.material as THREE.MeshBasicMaterial;
         mat.color.setHex(this.getSpeakerColor(status));
       }
@@ -3193,7 +5230,29 @@ export class AirportSceneManager {
     this.setSimulationIncident(null, [], false);
   }
 
+  public setCutawayMode(mode: 'none' | 'lantai1' | 'lantai2') {
+    this.isLantai1Cutaway = mode === 'lantai1';
+    this.isLantai2Cutaway = mode === 'lantai2';
+
+    const showRoofs = mode === 'none';
+    const showLantai2 = mode !== 'lantai1';
+
+    this.upperRoofMeshes.forEach((mesh) => {
+      mesh.visible = showRoofs;
+    });
+    this.lantai2Meshes.forEach((mesh) => {
+      mesh.visible = showLantai2;
+    });
+
+    this.updateHighlightMaterials();
+  }
+
+  public setLantai2Cutaway(enabled: boolean) {
+    this.setCutawayMode(enabled ? 'lantai2' : 'none');
+  }
+
   private updateHighlightMaterials() {
+    const isAnyCutaway = this.isLantai1Cutaway || this.isLantai2Cutaway;
     this.macroZones.forEach((zone) => {
       const meshes = this.zoneMeshes.get(zone.id);
       if (!meshes) return;
@@ -3215,16 +5274,22 @@ export class AirportSceneManager {
             mat.roughness = 0.25;
           } else {
             mat.color.setHex(0x10b981);
-            mat.opacity = 0.55;
+            mat.opacity = 0.45;
             mat.roughness = 0.35;
           }
         } else if (isSelected) {
           mat.color.setHex(0x38bdf8);
-          mat.opacity = 0.92;
+          mat.opacity = isAnyCutaway ? 0.22 : 0.42;
           mat.roughness = 0.15;
         } else {
           mat.color.set(zone.color);
-          mat.opacity = zone.id === 'macro-4' ? 0.38 : 0.72;
+          if (this.isLantai1Cutaway) {
+            mat.opacity = 0.06;
+          } else if (this.isLantai2Cutaway) {
+            mat.opacity = zone.id === 'macro-4' ? 0.12 : 0.14;
+          } else {
+            mat.opacity = zone.id === 'macro-4' ? 0.22 : 0.28;
+          }
           mat.roughness = 0.3;
         }
       });
@@ -3233,20 +5298,39 @@ export class AirportSceneManager {
 
   /**
    * Camera Presets for Sultan Hasanuddin Makassar (WAAA):
-   * Semua Terminal, Terminal Utama, Depan Terminal & Jalanan, Terminal Eksisting,
-   * Terminal Selatan, Apron & Garbarata, Gedung Parkir, ATC Tower
+   * Semua Terminal (with full roofs), Mockup Lantai 1, Mockup Lantai 2, Terminal Utama,
+   * Depan Terminal & Jalanan, Terminal Eksisting, Terminal Selatan, Apron & Garbarata, Gedung Parkir, ATC Tower
    */
   public setCameraPreset(preset: CameraPresetType) {
     switch (preset) {
       case 'overview':
+        this.setCutawayMode('none');
         this.selectZone(null, true, true);
+        break;
+      case 'lantai1':
+        // Matches Reference Cutaway Image: Lantai 1 Terminal Utama, Eksisting & Selatan (image_6015f581.png)
+        this.selectedZoneId = null;
+        this.callbacks.onSelectZone(null);
+        this.setCutawayMode('lantai1');
+        this.targetControlsTarget = new THREE.Vector3(12, 1.2, -14);
+        this.targetCameraPos = new THREE.Vector3(12, 68, -78);
+        break;
+      case 'lantai2':
+        // Matches Reference Cutaway Image: Lantai 2 Terminal Utama, Eksisting & Selatan
+        this.selectedZoneId = null;
+        this.callbacks.onSelectZone(null);
+        this.setCutawayMode('lantai2');
+        this.targetControlsTarget = new THREE.Vector3(-6, 4.8, -6);
+        this.targetCameraPos = new THREE.Vector3(-6, 84, -96);
         break;
       case 'utama':
       case 'dom_dep':
+        this.setCutawayMode('none');
         this.selectZone('macro-1', true, true);
         break;
       case 'curbside':
         // Matches Top Photo: "Tampilan di depan terminal Utama dan Jalanan" (Lantai 3 Drop-Off Y = 9.6m)
+        this.setCutawayMode('none');
         this.selectedZoneId = null;
         this.callbacks.onSelectZone(null);
         this.updateHighlightMaterials();
@@ -3255,20 +5339,25 @@ export class AirportSceneManager {
         break;
       case 'eksisting':
       case 'dom_arr':
+        this.setCutawayMode('none');
         this.selectZone('macro-2', true, true);
         break;
       case 'selatan':
       case 'intl_dep':
+        this.setCutawayMode('none');
         this.selectZone('macro-3', true, true);
         break;
       case 'apron':
       case 'intl_arr':
+        this.setCutawayMode('none');
         this.selectZone('macro-4', true, true);
         break;
       case 'parking':
+        this.setCutawayMode('none');
         this.selectZone('macro-5', true, true);
         break;
       case 'dom_all':
+        this.setCutawayMode('none');
         this.selectedZoneId = null;
         this.callbacks.onSelectZone(null);
         this.updateHighlightMaterials();
@@ -3276,6 +5365,7 @@ export class AirportSceneManager {
         this.targetCameraPos = new THREE.Vector3(24, 56, 65);
         break;
       case 'intl_all':
+        this.setCutawayMode('none');
         this.selectedZoneId = null;
         this.callbacks.onSelectZone(null);
         this.updateHighlightMaterials();
@@ -3283,6 +5373,7 @@ export class AirportSceneManager {
         this.targetCameraPos = new THREE.Vector3(-45, 50, 72);
         break;
       case 'tower':
+        this.setCutawayMode('none');
         this.selectedZoneId = null;
         this.callbacks.onSelectZone(null);
         this.updateHighlightMaterials();
@@ -3317,26 +5408,46 @@ export class AirportSceneManager {
       }
     }
 
-    const wavePhase = (elapsedTime * 2.5) % 1.0;
     this.soundWaveRings.forEach((ring) => {
-      const parentGroup = ring.parent as THREE.Group;
-      const spkId = parentGroup?.userData?.speakerId;
+      const spkId = ring.userData?.speakerId;
+      const ringCat = ring.userData?.category as SpeakerCategory | undefined;
+      const phaseOffset = ring.userData?.phaseOffset ?? 0;
+      const wavePhase = (elapsedTime * 2.2 + phaseOffset) % 1.0;
       const speaker = this.speakers.find((s) => s.id === spkId);
+
+      const isCategoryHighlighted =
+        this.activeCategoryFilter !== 'all' && ringCat === this.activeCategoryFilter;
+      const isSelectedSpeaker = speaker && this.selectedSpeakerId === speaker.id;
 
       const isBroadcasting =
         speaker &&
         (this.activeBroadcastingZones.has(speaker.macroZoneId) ||
           this.isEmergencyActive ||
-          speaker.status === 'broadcasting');
+          speaker.status === 'broadcasting' ||
+          isCategoryHighlighted ||
+          isSelectedSpeaker);
 
       if (isBroadcasting) {
         ring.visible = true;
-        const scale = 1.0 + wavePhase * 3.5;
+        const scale = 1.0 + wavePhase * 3.2;
         ring.scale.set(scale, scale, scale);
+
+        if (ringCat === 'column' || ringCat === 'horn') {
+          const baseZ = ring.userData.baseZ ?? 0.6;
+          ring.position.z = baseZ + wavePhase * (ringCat === 'column' ? 4.8 : 4.2);
+        } else {
+          const baseY = ring.userData.baseY ?? -0.25;
+          ring.position.y = baseY - wavePhase * 2.2;
+        }
+
         const mat = ring.material as THREE.MeshBasicMaterial;
-        mat.opacity = Math.max(0, 0.7 * (1.0 - wavePhase));
+        mat.opacity = Math.max(0, 0.78 * (1.0 - wavePhase));
         if (this.isEmergencyActive) {
           mat.color.setHex(0xef4444);
+        } else if (ringCat === 'column') {
+          mat.color.setHex(0x10b981);
+        } else if (ringCat === 'horn') {
+          mat.color.setHex(0xf59e0b);
         } else {
           mat.color.setHex(0x38bdf8);
         }
