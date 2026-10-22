@@ -7,6 +7,8 @@ import {
   RotateCcw,
   Building2,
   Focus,
+  Map as MapIcon,
+  X,
 } from 'lucide-react';
 import {
   AirportSceneManager,
@@ -46,6 +48,8 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   const managerRef = useRef<AirportSceneManager | null>(null);
   const isPresetChangeRef = useRef<boolean>(false);
   const [activePreset, setActivePreset] = useState<CameraPresetType>('overview');
+  const [showMasterplanPip, setShowMasterplanPip] = useState<boolean>(false);
+  const [pipTab, setPipTab] = useState<'parkir' | 'masterplan'>('parkir');
 
   // Initialize Three.js scene once
   useEffect(() => {
@@ -59,10 +63,10 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         onSelectZone: (zid) => {
           onSelectZone(zid);
           if (isPresetChangeRef.current) return;
-          if (zid === 'macro-1') setActivePreset('dom_dep');
-          else if (zid === 'macro-2') setActivePreset('dom_arr');
-          else if (zid === 'macro-3') setActivePreset('intl_dep');
-          else if (zid === 'macro-4') setActivePreset('intl_arr');
+          if (zid === 'macro-1') setActivePreset('utama');
+          else if (zid === 'macro-2') setActivePreset('eksisting');
+          else if (zid === 'macro-3') setActivePreset('selatan');
+          else if (zid === 'macro-4') setActivePreset('apron');
           else if (zid === 'macro-5') setActivePreset('parking');
           else if (zid === null) setActivePreset('overview');
         },
@@ -114,16 +118,16 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   useEffect(() => {
     if (!managerRef.current || isPresetChangeRef.current) return;
     if (selectedZoneId === 'macro-1') {
-      setActivePreset('dom_dep');
+      setActivePreset('utama');
       managerRef.current.selectZone('macro-1', true, false);
     } else if (selectedZoneId === 'macro-2') {
-      setActivePreset('dom_arr');
+      setActivePreset('eksisting');
       managerRef.current.selectZone('macro-2', true, false);
     } else if (selectedZoneId === 'macro-3') {
-      setActivePreset('intl_dep');
+      setActivePreset('selatan');
       managerRef.current.selectZone('macro-3', true, false);
     } else if (selectedZoneId === 'macro-4') {
-      setActivePreset('intl_arr');
+      setActivePreset('apron');
       managerRef.current.selectZone('macro-4', true, false);
     } else if (selectedZoneId === 'macro-5') {
       setActivePreset('parking');
@@ -161,7 +165,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         <div className="flex flex-wrap items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xl text-xs select-none backdrop-blur-md">
           {/* Camera Focus Presets */}
           <span className="text-[10px] uppercase font-mono text-slate-400 mr-1 flex items-center gap-1 font-semibold">
-            <Compass className="w-3.5 h-3.5 text-sky-400" /> Fokus Terminal:
+            <Compass className="w-3.5 h-3.5 text-sky-400" /> Fokus WAAA:
           </span>
 
           <button
@@ -171,82 +175,70 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                 ? 'bg-sky-500 text-white shadow-sm'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin (WAAA)"
+            title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin Makassar (WAAA)"
           >
             <Building2 className="w-3 h-3" />
             <span>Semua Terminal</span>
           </button>
 
           <button
-            onClick={() => handleSelectPreset('dom_all')}
+            onClick={() => handleSelectPreset('utama')}
             className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              activePreset === 'dom_all'
+              selectedZoneId === 'macro-1' || activePreset === 'utama'
                 ? 'bg-sky-500/25 text-sky-300 border border-sky-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Seluruh Sayap Terminal Domestik"
+            title="Fokus Zona 1: Terminal Utama"
           >
-            Domestik (All)
+            Terminal Utama
           </button>
 
           <button
-            onClick={() => handleSelectPreset('dom_dep')}
+            onClick={() => handleSelectPreset('curbside')}
             className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-1' || activePreset === 'dom_dep'
-                ? 'bg-sky-500/25 text-sky-300 border border-sky-400/50'
+              activePreset === 'curbside'
+                ? 'bg-teal-500/25 text-teal-300 border border-teal-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Zona 1: Terminal Keberangkatan Domestik (Gate 1-6)"
+            title="Tampilan di Depan Terminal Utama & Jalanan"
           >
-            Dom-Dep
+            Depan Terminal & Jalanan
           </button>
 
           <button
-            onClick={() => handleSelectPreset('dom_arr')}
+            onClick={() => handleSelectPreset('eksisting')}
             className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-2' || activePreset === 'dom_arr'
+              selectedZoneId === 'macro-2' || activePreset === 'eksisting'
                 ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Zona 2: Terminal Kedatangan Domestik (Baggage Claim)"
+            title="Fokus Zona 2: Terminal Eksisting (Gate 07–12)"
           >
-            Dom-Arr
+            Terminal Eksisting
           </button>
 
           <button
-            onClick={() => handleSelectPreset('intl_all')}
+            onClick={() => handleSelectPreset('selatan')}
             className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              activePreset === 'intl_all'
+              selectedZoneId === 'macro-3' || activePreset === 'selatan'
                 ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Seluruh Sayap Terminal Internasional"
+            title="Fokus Zona 3: Terminal Selatan (Rotunda Gate 01–06)"
           >
-            Internasional (All)
+            Terminal Selatan
           </button>
 
           <button
-            onClick={() => handleSelectPreset('intl_dep')}
+            onClick={() => handleSelectPreset('apron')}
             className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-3' || activePreset === 'intl_dep'
-                ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 3: Terminal Keberangkatan Internasional (Gate 7-12)"
-          >
-            Intl-Dep
-          </button>
-
-          <button
-            onClick={() => handleSelectPreset('intl_arr')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-4' || activePreset === 'intl_arr'
+              selectedZoneId === 'macro-4' || activePreset === 'apron'
                 ? 'bg-purple-500/25 text-purple-300 border border-purple-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Zona 4: Terminal Kedatangan Internasional (Imigrasi & Karantina)"
+            title="Fokus Zona 4: Apron, 12 Garbarata & Pesawat Parkir"
           >
-            Intl-Arr
+            Apron & Garbarata
           </button>
 
           <button
@@ -256,7 +248,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                 ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
                 : 'text-slate-300 hover:bg-slate-800'
             }`}
-            title="Fokus Zona 5: Gedung Parkir & Drop-Off Curbside"
+            title="Fokus Zona 5: Gedung Parkir, Jembatan Penghubung & Jalanan U-Loop"
           >
             Gedung Parkir
           </button>
@@ -317,6 +309,19 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
             <Wifi className="w-3 h-3" />
             <span>Kabel RSTP</span>
           </button>
+
+          <button
+            onClick={() => setShowMasterplanPip(!showMasterplanPip)}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
+              showMasterplanPip
+                ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
+                : 'text-slate-300 hover:bg-slate-800'
+            }`}
+            title="Tampilkan / Sembunyikan Referensi Layout Masterplan Sultan Hasanuddin Makassar"
+          >
+            <MapIcon className="w-3 h-3" />
+            <span>Denah WAAA</span>
+          </button>
         </div>
 
         {/* Active Focus Banner with Quick Return to All Terminals */}
@@ -328,11 +333,11 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
               <span className="font-bold text-sky-300">
                 {activeZoneObj
                   ? `${activeZoneObj.code} — ${activeZoneObj.name}`
-                  : activePreset === 'dom_all'
-                  ? 'Seluruh Sayap Terminal Domestik'
-                  : activePreset === 'intl_all'
-                  ? 'Seluruh Sayap Terminal Internasional'
-                  : 'Menara ATC Sultan Hasanuddin (WAAA)'}
+                  : activePreset === 'curbside'
+                  ? 'Tampilan Depan Terminal Utama & Jalanan'
+                  : activePreset === 'tower'
+                  ? 'Menara ATC Sultan Hasanuddin (WAAA)'
+                  : 'Kompleks Terminal Sultan Hasanuddin'}
               </span>
             </div>
             <button
@@ -345,6 +350,71 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </div>
         )}
       </div>
+
+      {/* Floating Reference Masterplan Picture-in-Picture Card */}
+      {showMasterplanPip && (
+        <div className="absolute top-20 right-4 z-30 w-80 sm:w-96 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl overflow-hidden backdrop-blur-md">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 bg-slate-950/70">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
+              <MapIcon className="w-3.5 h-3.5 text-amber-400" />
+              <span>Referensi Visual WAAA</span>
+            </div>
+            <button
+              onClick={() => setShowMasterplanPip(false)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="flex border-b border-slate-800 bg-slate-900 text-[11px] font-medium">
+            <button
+              onClick={() => setPipTab('parkir')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'parkir'
+                  ? 'bg-amber-500/20 text-amber-300 border-b-2 border-amber-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Gedung Parkir & Jalanan
+            </button>
+            <button
+              onClick={() => setPipTab('masterplan')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'masterplan'
+                  ? 'bg-sky-500/20 text-sky-300 border-b-2 border-sky-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Masterplan Terminal
+            </button>
+          </div>
+          <div className="p-2 bg-slate-950">
+            <img
+              src={
+                pipTab === 'parkir'
+                  ? '/assets/aistudio/Terminal_Selatan__1__b9bc7e87.png'
+                  : '/assets/aistudio/1_47a27264.png'
+              }
+              alt="Referensi Bandara Sultan Hasanuddin Makassar"
+              className="w-full h-auto max-h-72 rounded-lg border border-slate-800 object-contain bg-slate-900"
+            />
+            <div className="mt-2 grid grid-cols-2 gap-1 text-[10px] font-mono text-slate-300">
+              <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
+                <span className="text-sky-400 font-bold">●</span> Terminal Utama
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
+                <span className="text-emerald-400 font-bold">●</span> Terminal Eksisting
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
+                <span className="text-indigo-400 font-bold">●</span> Terminal Selatan
+              </div>
+              <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
+                <span className="text-amber-400 font-bold">●</span> Gedung Parkir
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating 3D Interaction Hints */}
       <div className="absolute top-3 right-4 z-10 hidden 2xl:flex flex-col gap-1 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px] font-mono text-slate-400 select-none">
@@ -369,11 +439,11 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
       {/* Floating Legend for Speaker Status */}
       <div className="absolute bottom-28 left-4 z-20 hidden md:flex flex-col gap-1.5 p-2.5 rounded-lg bg-slate-900/85 border border-slate-800 text-[11px] font-mono text-slate-300 select-none">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-          Status IP Speaker (WAAA)
+          Status IP Speaker (WAAA / MKS)
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          <span>Online / Normal</span>
+          <span>Online / Normal (52 Unit)</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping" />

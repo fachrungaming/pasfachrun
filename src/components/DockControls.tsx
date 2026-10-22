@@ -89,10 +89,10 @@ export const DockControls: React.FC<DockControlsProps> = ({
 
   // Custom TTS builder
   const [customAnnounceText, setCustomAnnounceText] = useState(
-    'Panggilan kepada seluruh penumpang pesawat Garuda Indonesia nomor penerbangan GA-402 tujuan Bali, dipersilakan naik ke pesawat melalui Pintu 2.'
+    'Panggilan kepada seluruh penumpang pesawat Garuda Indonesia nomor penerbangan GA-601 tujuan Jakarta, dipersilakan naik ke pesawat melalui Pintu Gate 02 Terminal Selatan.'
   );
   const [customEnglishText, setCustomEnglishText] = useState(
-    'Attention passengers of Garuda Indonesia flight GA-402 to Bali, please proceed to Gate 2 for boarding.'
+    'Attention passengers of Garuda Indonesia flight GA-601 to Jakarta, please proceed to Gate 02 South Terminal for boarding.'
   );
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
@@ -283,16 +283,27 @@ export const DockControls: React.FC<DockControlsProps> = ({
             {/* ================= TAB 1: ZONES & BROADCAST ================= */}
             {activeTab === 'zones' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-slate-200">
-                      5 Macro Zones Pengendalian Suara:
+                      5 Zona Bandara Sultan Hasanuddin (WAAA):
                     </span>
                     <button
                       onClick={selectAllZones}
-                      className="text-[11px] text-sky-400 hover:underline"
+                      className="text-[11px] text-sky-400 hover:underline cursor-pointer"
                     >
-                      Pilih Semua (All-Call)
+                      Pilih Semua Siaran (All-Call)
+                    </button>
+                    <span className="text-slate-600">|</span>
+                    <button
+                      onClick={() => onSelectZone(null)}
+                      className={`text-[11px] px-2 py-0.5 rounded font-mono transition-colors cursor-pointer ${
+                        selectedZoneId === null
+                          ? 'bg-sky-500 text-white font-bold'
+                          : 'bg-slate-800 text-sky-300 hover:bg-slate-700 border border-slate-700'
+                      }`}
+                    >
+                      Fokus Kamera: Semua Terminal
                     </button>
                   </div>
                   <span className="text-[11px] text-slate-400 font-mono">
@@ -332,10 +343,14 @@ export const DockControls: React.FC<DockControlsProps> = ({
 
                           <button
                             onClick={() => onSelectZone(isFocus ? null : zone.id)}
-                            className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-                            title="Focus in 3D"
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${
+                              isFocus
+                                ? 'bg-sky-500 text-white border-sky-400 font-bold'
+                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'
+                            }`}
+                            title="Fokus Kamera 3D ke bagian terminal ini"
                           >
-                            {isFocus ? 'Exit' : '3D'}
+                            {isFocus ? 'Semua' : 'Fokus 3D'}
                           </button>
                         </div>
 
@@ -533,45 +548,45 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   <div className="grid grid-cols-3 gap-1.5 text-[11px] font-mono">
                     <button
                       onClick={() => setSipNumber('#101')}
-                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left"
+                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left cursor-pointer"
                     >
                       <div className="text-slate-400">#101</div>
-                      <div className="text-[10px] text-slate-200 truncate">Dom-Dep</div>
+                      <div className="text-[10px] text-slate-200 truncate">Trm Utama</div>
                     </button>
                     <button
                       onClick={() => setSipNumber('#102')}
-                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left"
+                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left cursor-pointer"
                     >
                       <div className="text-slate-400">#102</div>
-                      <div className="text-[10px] text-slate-200 truncate">Dom-Arr</div>
+                      <div className="text-[10px] text-slate-200 truncate">Trm Eksisting</div>
                     </button>
                     <button
                       onClick={() => setSipNumber('#103')}
-                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left"
+                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left cursor-pointer"
                     >
                       <div className="text-slate-400">#103</div>
-                      <div className="text-[10px] text-slate-200 truncate">Intl-Dep</div>
+                      <div className="text-[10px] text-slate-200 truncate">Trm Selatan</div>
                     </button>
                     <button
                       onClick={() => setSipNumber('#104')}
-                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left"
+                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left cursor-pointer"
                     >
                       <div className="text-slate-400">#104</div>
-                      <div className="text-[10px] text-slate-200 truncate">Intl-Arr</div>
+                      <div className="text-[10px] text-slate-200 truncate">Apron & Garbarata</div>
                     </button>
                     <button
                       onClick={() => setSipNumber('#105')}
-                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left"
+                      className="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left cursor-pointer"
                     >
                       <div className="text-slate-400">#105</div>
-                      <div className="text-[10px] text-slate-200 truncate">Parkir</div>
+                      <div className="text-[10px] text-slate-200 truncate">Gedung Parkir</div>
                     </button>
                     <button
                       onClick={() => setSipNumber('#999')}
-                      className="p-1.5 rounded bg-red-950/50 hover:bg-red-900/50 border border-red-800/40 text-left"
+                      className="p-1.5 rounded bg-red-950/50 hover:bg-red-900/50 border border-red-800/40 text-left cursor-pointer"
                     >
                       <div className="text-red-400">#999</div>
-                      <div className="text-[10px] text-red-200 truncate">All-Call</div>
+                      <div className="text-[10px] text-red-200 truncate">All-Call WAAA</div>
                     </button>
                   </div>
 
@@ -652,47 +667,47 @@ export const DockControls: React.FC<DockControlsProps> = ({
                 {/* Multilingual custom speech builder */}
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
                   <div className="text-xs font-semibold text-slate-300">
-                    Template Pengumuman Cepat Bandara:
+                    Template Pengumuman Cepat Bandara Sultan Hasanuddin (WAAA):
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       onClick={() => {
                         setCustomAnnounceText(
-                          'Panggilan kepada penumpang pesawat Garuda Indonesia nomor penerbangan GA-402 tujuan Bali, dipersilakan naik ke pesawat melalui Pintu 2.'
+                          'Panggilan kepada penumpang pesawat Garuda Indonesia nomor penerbangan GA-601 tujuan Jakarta, dipersilakan naik ke pesawat melalui Pintu Gate 02 Terminal Selatan.'
                         );
                         setCustomEnglishText(
-                          'Attention passengers of Garuda Indonesia flight GA-402 to Bali, please proceed to Gate 2 for boarding.'
+                          'Attention passengers of Garuda Indonesia flight GA-601 to Jakarta, please proceed to Gate 02 South Terminal for boarding.'
                         );
                       }}
-                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200"
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200 cursor-pointer"
                     >
-                      Boarding Gate 2
+                      Boarding Gate 02 (Terminal Selatan)
                     </button>
                     <button
                       onClick={() => {
                         setCustomAnnounceText(
-                          'Panggilan terakhir untuk penumpang pesawat Singapore Airlines nomor SQ-951 tujuan Singapura, pintu keberangkatan Gate 8 akan segera ditutup.'
+                          'Panggilan terakhir untuk penumpang pesawat Batik Air nomor ID-6181 tujuan Kendari, pintu keberangkatan Gate 08 Terminal Eksisting akan segera ditutup.'
                         );
                         setCustomEnglishText(
-                          'This is the final boarding call for Singapore Airlines flight SQ-951 to Singapore. Gate 8 is closing now.'
+                          'This is the final boarding call for Batik Air flight ID-6181 to Kendari. Gate 08 at Existing Terminal is closing now.'
                         );
                       }}
-                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200"
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200 cursor-pointer"
                     >
-                      Final Call Gate 8
+                      Final Call Gate 08 (Terminal Eksisting)
                     </button>
                     <button
                       onClick={() => {
                         setCustomAnnounceText(
-                          'Perhatian kepada pengguna jasa bandara, mohon untuk tidak meninggalkan barang bawaan Anda tanpa pengawasan di area terminal demi keamanan bersama.'
+                          'Perhatian kepada pengguna jasa Bandara Internasional Sultan Hasanuddin Makassar, mohon untuk tidak meninggalkan barang bawaan Anda tanpa pengawasan di area Terminal Utama, Eksisting, maupun Terminal Selatan.'
                         );
                         setCustomEnglishText(
-                          'Attention airport passengers, please do not leave your baggage unattended at any time for safety and security.'
+                          'Attention passengers at Sultan Hasanuddin International Airport Makassar, please do not leave your baggage unattended at any time.'
                         );
                       }}
-                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200"
+                      className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-200 cursor-pointer"
                     >
-                      Peringatan Bagasi Unattended
+                      Peringatan Bagasi WAAA
                     </button>
                   </div>
                 </div>

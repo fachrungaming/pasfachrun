@@ -47,6 +47,7 @@ export default function App() {
   const [isEmergencyActive, setIsEmergencyActive] = useState<boolean>(false);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState<boolean>(false);
   const [isBgmActive, setIsBgmActive] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Emergency Drill Simulation State (Isolated Sandbox)
   const [isSimulationDrawerOpen, setIsSimulationDrawerOpen] = useState<boolean>(false);
@@ -200,7 +201,7 @@ export default function App() {
           fileSizeFormatted: meta.sizeFormatted,
           durationSec: meta.duration,
           sampleRate: meta.sampleRate,
-          uploadedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+          uploadedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA',
           hasCustomFile: true,
         },
       }));
@@ -223,7 +224,7 @@ export default function App() {
         fileSizeFormatted: meta.sizeFormatted,
         durationSec: meta.durationSec,
         sampleRate: meta.sampleRate,
-        uploadedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+        uploadedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WITA',
         hasCustomFile: true,
       },
     }));
@@ -388,9 +389,20 @@ export default function App() {
 
   const handleFocusIncident = (coords: [number, number, number]) => {
     if (sceneManagerRef.current) {
-      const [ix, iy, iz] = coords;
-      sceneManagerRef.current.selectZone(null);
+      sceneManagerRef.current.focusCoordinates(coords);
     }
+  };
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      showToast(
+        next === 'light'
+          ? '☀️ Mode Tampilan Terang (Light Mode) Aktif.'
+          : '🌙 Mode Tampilan Gelap (Dark Mode) Aktif.'
+      );
+      return next;
+    });
   };
 
   // Zone volume slider
@@ -421,7 +433,11 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
+    <div
+      className={`relative w-screen h-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
+        theme === 'light' ? 'light-mode bg-sky-100' : 'bg-slate-950'
+      }`}
+    >
       {/* 1. Header Bar */}
       <HeaderBar
         telemetry={telemetry}
@@ -434,6 +450,8 @@ export default function App() {
         activeScenarioTitle={activeScenario?.title}
         onOpenAudioUploadModal={() => setIsAudioModalOpen(true)}
         customTracksCount={Object.values(customTracks).filter((t) => t.hasCustomFile).length}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* 2. 3D Digital Twin WebGL Viewport */}
@@ -448,6 +466,7 @@ export default function App() {
           onSetVisualizerMode={(mode) => setVisualizerMode(mode)}
           isEmergencyActive={isEmergencyActive}
           broadcastingZoneIds={broadcastingZoneIds}
+          theme={theme}
           onSceneManagerReady={(manager) => {
             sceneManagerRef.current = manager;
           }}
