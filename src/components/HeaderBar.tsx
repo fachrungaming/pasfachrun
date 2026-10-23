@@ -25,6 +25,7 @@ interface HeaderBarProps {
   customTracksCount?: number;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
+  onOpenLandingPage?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -40,6 +41,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   customTracksCount,
   theme = 'dark',
   onToggleTheme,
+  onOpenLandingPage,
 }) => {
   const [timeUtc, setTimeUtc] = useState('');
   const [timeWita, setTimeWita] = useState('');
@@ -74,9 +76,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 py-2.5 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 text-white select-none transition-colors duration-300">
-      {/* Brand & Terminal Code: SULTAN HASANUDDIN / WAAA (MKS) */}
+      {/* Brand & Terminal Code */}
       <div className="flex items-center space-x-3.5">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-400/40 text-sky-400 font-mono font-black text-sm tracking-wider">
+        <div
+          onClick={onOpenLandingPage}
+          className="flex items-center justify-center w-9 h-9 rounded-lg bg-sky-500/20 border border-sky-400/40 text-sky-400 font-mono font-black text-sm tracking-wider cursor-pointer hover:bg-sky-500/30 transition-colors"
+          title="Kembali ke Halaman Utama (Landing Page)"
+        >
           MKS
         </div>
         <div>
@@ -84,16 +90,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <h1 className="text-sm font-bold tracking-wide text-slate-100 uppercase">
               Airport IP PA Digital Twin
             </h1>
-            <span className="text-slate-500" aria-hidden="true">
-              &middot;
-            </span>
-            <span className="text-xs font-mono font-semibold text-sky-400 tracking-wide">
-              SULTAN HASANUDDIN / WAAA (MKS)
-            </span>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Makassar Decentralized IP Audio &middot; EN 54-16 / EN 54-24 Compliance
-          </p>
         </div>
       </div>
 
@@ -145,14 +142,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             {telemetry.rstpRingStatus}
           </span>
           <span className="text-slate-500">({telemetry.networkLatencyMs}ms)</span>
-          <span className="text-slate-600">&middot;</span>
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-emerald-300">EN 54-16 OK</span>
         </div>
       </div>
 
       {/* Right: Theme Switcher, Clock & Master Actions */}
       <div className="flex items-center space-x-2 sm:space-x-2.5">
+        {onOpenLandingPage && (
+          <button
+            onClick={onOpenLandingPage}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-sky-400 hover:text-sky-300 text-xs font-semibold cursor-pointer transition-all"
+            title="Buka Landing Page Bandara Sultan Hasanuddin"
+          >
+            <span>Beranda</span>
+          </button>
+        )}
+
         {/* Dark / Light Theme Mode Selector */}
         {onToggleTheme && (
           <button
@@ -177,20 +181,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </button>
         )}
-
-        {/* Simulation Drill Toggle Button */}
-        <button
-          onClick={onToggleSimulation}
-          className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-            isSimulationActive
-              ? 'bg-amber-500 text-black border-amber-400 shadow-lg shadow-amber-900/40'
-              : 'bg-slate-900 border-amber-500/50 text-amber-300 hover:bg-amber-950/40'
-          }`}
-          title="Buka Konsol Simulasi Skenario Darurat Bebas Risiko"
-        >
-          <Radio className={`w-3.5 h-3.5 ${isSimulationActive ? 'text-black' : 'text-amber-400'}`} />
-          <span className="hidden sm:inline">{isSimulationActive ? 'DRILL AKTIF' : 'SIMULASI'}</span>
-        </button>
 
         {/* Audio Manager (Upload BGM, Indonesia Raya, Adzan) */}
         {onOpenAudioUploadModal && (

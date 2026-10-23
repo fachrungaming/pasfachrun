@@ -11,7 +11,8 @@ import { SpeakerDetailDrawer } from './components/SpeakerDetailDrawer';
 import { EmergencyModal } from './components/EmergencyModal';
 import { SimulationSandboxDrawer } from './components/SimulationSandboxDrawer';
 import { AudioUploadManagerModal } from './components/AudioUploadManagerModal';
-import { AirportSceneManager, VisualizerMode } from './three/AirportSceneManager';
+import { LandingPage } from './components/LandingPage';
+import { AirportSceneManager, VisualizerMode, CameraPresetType } from './three/AirportSceneManager';
 import {
   MacroZone,
   IPSpeaker,
@@ -38,6 +39,8 @@ export default function App() {
   const [macroZones, setMacroZones] = useState<MacroZone[]>(INITIAL_MACRO_ZONES);
   const [speakers, setSpeakers] = useState<IPSpeaker[]>(INITIAL_SPEAKERS);
   const [flights, setFlights] = useState<FlightAnnouncement[]>(INITIAL_FLIGHTS);
+  const [showLandingPage, setShowLandingPage] = useState<boolean>(true);
+  const [initialPreset, setInitialPreset] = useState<CameraPresetType>('overview');
 
   // Interaction State
   const [selectedZoneId, setSelectedZoneId] = useState<ZoneId | null>(null);
@@ -432,6 +435,46 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleEnterDigitalTwin = (options?: {
+    zoneId?: ZoneId | null;
+    floorCutaway?: 'all' | 'floor1' | 'floor2';
+    openSimulation?: boolean;
+  }) => {
+    if (options?.floorCutaway === 'floor1') {
+      setInitialPreset('lantai1');
+      setSelectedZoneId(null);
+    } else if (options?.floorCutaway === 'floor2') {
+      setInitialPreset('lantai2');
+      setSelectedZoneId(null);
+    } else if (options?.zoneId) {
+      setSelectedZoneId(options.zoneId);
+      if (options.zoneId === 'macro-1') setInitialPreset('utama');
+      else if (options.zoneId === 'macro-2') setInitialPreset('eksisting');
+      else if (options.zoneId === 'macro-3') setInitialPreset('selatan');
+      else if (options.zoneId === 'macro-4') setInitialPreset('apron');
+      else if (options.zoneId === 'macro-5') setInitialPreset('parking');
+    } else {
+      setInitialPreset('overview');
+      setSelectedZoneId(null);
+    }
+
+    if (options?.openSimulation) {
+      setIsSimulationDrawerOpen(true);
+    }
+
+    setShowLandingPage(false);
+  };
+
+  if (showLandingPage) {
+    return (
+      <LandingPage
+        macroZones={macroZones}
+        speakers={speakers}
+        onEnterDigitalTwin={handleEnterDigitalTwin}
+      />
+    );
+  }
+
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
@@ -452,6 +495,7 @@ export default function App() {
         customTracksCount={Object.values(customTracks).filter((t) => t.hasCustomFile).length}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        onOpenLandingPage={() => setShowLandingPage(true)}
       />
 
       {/* 2. 3D Digital Twin WebGL Viewport */}
@@ -467,6 +511,7 @@ export default function App() {
           isEmergencyActive={isEmergencyActive}
           broadcastingZoneIds={broadcastingZoneIds}
           theme={theme}
+          initialPreset={initialPreset}
           onSceneManagerReady={(manager) => {
             sceneManagerRef.current = manager;
           }}
