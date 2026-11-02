@@ -1,5 +1,204 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Aneto Skyline';
+  src: local('Aneto Skyline'), local('Aneto-Skyline'), local('Aneto'), local('Bodoni Moda');
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-aneto-skyline,
+.font-aneto-skyline button,
+.font-aneto-skyline span {
+  font-family: 'Aneto Skyline', 'Bodoni Moda', 'Oswald', Georgia, serif !important;
+  font-stretch: condensed;
+  letter-spacing: 0.04em;
+}
+
+@font-face {
+  font-family: 'Violet Sans';
+  src: local('Violet Sans'), local('VioletSans-Regular'), local('VioletSans'), local('Space Grotesk');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-violet-sans,
+.font-violet-sans button,
+.font-violet-sans input,
+.font-violet-sans select,
+.font-violet-sans span,
+.font-violet-sans div,
+.font-violet-sans p,
+.font-violet-sans label {
+  font-family: 'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  letter-spacing: 0.015em;
+}
+
+/* Skeuomorphism Hardware Console Styling for Footer Dock */
+.skeuo-chassis {
+  background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 45%, #94a3b8 100%);
+  border: 1.5px solid #64748b;
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.92),
+    inset 0 -3px 6px rgba(15, 23, 42, 0.38),
+    0 20px 38px rgba(2, 6, 23, 0.65),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.skeuo-header-deck {
+  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+  border-bottom: 1.5px solid #475569;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.8),
+    0 2px 5px rgba(15, 23, 42, 0.25);
+}
+
+.skeuo-well {
+  background: linear-gradient(180deg, #cbd5e1 0%, #dde5ed 25%, #e2e8f0 100%);
+  box-shadow:
+    inset 0 4px 8px rgba(15, 23, 42, 0.25),
+    inset 0 1px 3px rgba(15, 23, 42, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.skeuo-card {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #94a3b8;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1.5px 0 #ffffff,
+    inset 0 -2px 3px rgba(100, 116, 139, 0.25),
+    0 4px 8px rgba(15, 23, 42, 0.18),
+    0 1px 2px rgba(15, 23, 42, 0.22);
+}
+
+.skeuo-card-active {
+  background: linear-gradient(180deg, #f0f9ff 0%, #bae6fd 100%);
+  border: 1.5px solid #0284c7;
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    0 0 12px rgba(14, 165, 233, 0.35),
+    0 5px 10px rgba(15, 23, 42, 0.24);
+}
+
+.skeuo-lcd {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.8),
+    inset 0 1px 2px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.skeuo-btn {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 58%, #cbd5e1 100%);
+  border: 1px solid #64748b;
+  border-radius: 9px;
+  color: #1e293b;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 2px rgba(71, 85, 105, 0.28),
+    0 3px 5px rgba(15, 23, 42, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.32);
+  transition: all 0.14s ease;
+}
+
+.skeuo-btn:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #eef2f6 58%, #d8e0ea 100%);
+}
+
+.skeuo-btn:active,
+.skeuo-btn-pressed {
+  background: linear-gradient(180deg, #cbd5e1 0%, #dde5ed 60%, #e2e8f0 100%) !important;
+  border-color: #475569 !important;
+  box-shadow:
+    inset 0 3px 5px rgba(15, 23, 42, 0.45),
+    inset 0 1px 2px rgba(15, 23, 42, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  transform: translateY(1px);
+}
+
+.skeuo-btn-sky {
+  background: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 52%, #0284c7 100%);
+  border: 1px solid #0369a1;
+  border-radius: 9px;
+  color: #082f49;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.8),
+    inset 0 -2px 2px rgba(3, 105, 161, 0.45),
+    0 3px 6px rgba(2, 132, 199, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.skeuo-btn-amber {
+  background: linear-gradient(180deg, #fde047 0%, #facc15 52%, #ca8a04 100%);
+  border: 1px solid #854d0e;
+  border-radius: 9px;
+  color: #1c1917;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.85),
+    inset 0 -2px 2px rgba(133, 77, 14, 0.4),
+    0 3px 6px rgba(161, 98, 7, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.skeuo-btn-emerald {
+  background: linear-gradient(180deg, #6ee7b7 0%, #10b981 55%, #047857 100%);
+  border: 1px solid #065f46;
+  border-radius: 9px;
+  color: #022c22;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.75),
+    inset 0 -2px 2px rgba(6, 95, 70, 0.45),
+    0 3px 6px rgba(5, 150, 105, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.skeuo-btn-crimson {
+  background: linear-gradient(180deg, #fda4af 0%, #f43f5e 48%, #be123c 100%);
+  border: 1px solid #881337;
+  border-radius: 9px;
+  color: #ffffff;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.65),
+    inset 0 -2px 2px rgba(136, 19, 55, 0.5),
+    0 3px 6px rgba(190, 18, 60, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.skeuo-btn-violet {
+  background: linear-gradient(180deg, #d8b4fe 0%, #a855f7 52%, #7e22ce 100%);
+  border: 1px solid #581c87;
+  border-radius: 9px;
+  color: #ffffff;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 1.5px 0.5px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 2px rgba(88, 28, 135, 0.45),
+    0 3px 6px rgba(126, 34, 206, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.skeuo-input {
+  background: linear-gradient(180deg, #e2e8f0 0%, #f8fafc 40%, #ffffff 100%);
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  color: #0f172a;
+  box-shadow:
+    inset 0 2px 4px rgba(15, 23, 42, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 /* Light Mode Theme Overrides for Sultan Hasanuddin Makassar Digital Twin HUD */
 .light-mode {
   background-color: #e0f2fe !important;

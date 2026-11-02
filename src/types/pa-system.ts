@@ -126,7 +126,7 @@ export interface IPSpeaker {
   rotationY?: number; // Arah hadap horizontal (radian)
   ipAddress: string;
   macAddress: string;
-  poeClass: 'PoE+ (30W)' | 'PoE++ (60W)';
+  poeClass: 'PoE+ (30W)' | 'PoE++ (60W)' | string;
   currentWattage: number;
   status: SpeakerStatus;
   impedanceOhm: number; // Nominal ~8.2 Ohm

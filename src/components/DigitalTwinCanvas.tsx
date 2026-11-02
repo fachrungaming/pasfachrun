@@ -20,6 +20,9 @@ import {
   UserCheck,
   Bath,
   Maximize2,
+  Minimize2,
+  ChevronUp,
+  ChevronDown,
   Eye,
 } from 'lucide-react';
 import {
@@ -144,41 +147,41 @@ const ROOM1_DIRECTIONAL_VIEWS: Room1DirectionalViewInfo[] = [
     id: 'depan',
     label: 'Tampilan Depan',
     shortLabel: 'Tampilan Depan',
-    fileName: 'Tampilan Depan (Tampilan_Depan_a8f44f77.jpeg)',
-    imgSrc: '/assets/aistudio/Tampilan_Depan_a8f44f77.jpeg',
+    fileName: 'Tampilan-Depan.jpg',
+    imgSrc: '/assets/aistudio/Tampilan-Depan.jpg',
     wallSide: 'Sisi Depan (+X / Dinding Kiri Denah)',
     description:
-      'Menghadap dinding depan: meja kerja PC kayu coklat + monitor putih, TV monitoring biru di dinding atas, dispenser silver, kulkas hitam motif emas, 8 galon air biru + tripod, dan tempat sampah stainless bulat.',
+      'Menghadap dinding depan: plafon akustik T-bar + lampu TL & smoke detector, meja kerja PC kayu coklat 3 laci + monitor, TV monitoring miring + jam digital, dispenser silver, kulkas hitam motif bunga emas (kaleng Fox\'s & mangkok di atas), 8 galon air biru berlabel + tripod gooseneck, dan tempat sampah stainless bulat.',
   },
   {
     id: 'belakang',
     label: 'Tampilan Belakang',
     shortLabel: 'Tampilan Belakang',
-    fileName: 'Tampilan Belakang (Tampilan_Belakang_2314ea8a.jpeg)',
-    imgSrc: '/assets/aistudio/Tampilan_Belakang_2314ea8a.jpeg',
+    fileName: 'Tampilan-Belakang.jpg',
+    imgSrc: '/assets/aistudio/Tampilan-Belakang.jpg',
     wallSide: 'Sisi Belakang (-X / Dinding Kanan Denah)',
     description:
-      'Menghadap sisi belakang: kursi tunggu bandara 4 dudukan warna hijau & biru-hijau di kanan, serta bukaan lorong di kiri dengan standing bracket TV hitam 2 tiang dan tabung APAR merah + rambu segitiga.',
+      'Menghadap sisi belakang: kursi tunggu bandara 4 dudukan besi warna hijau & biru-hijau (tanda X & tas hitam di kolong), meja tamu besi garis hitam, serta bukaan lorong berlantai keramik krem dengan standing bracket TV hitam 2 tiang, panel listrik, dan tabung APAR merah + rambu segitiga.',
   },
   {
     id: 'kanan',
     label: 'Tampilan Kanan',
     shortLabel: 'Tampilan Kanan',
-    fileName: 'Tampilan Kanan (Tampilan_Kanan_7e5f03f3.jpeg)',
-    imgSrc: '/assets/aistudio/Tampilan_Kanan_7e5f03f3.jpeg',
+    fileName: 'Tampilan-Kanan.jpg',
+    imgSrc: '/assets/aistudio/Tampilan-Kanan.jpg',
     wallSide: 'Sisi Kanan (+Z / Dinding Atas ke Control Room)',
     description:
-      'Menghadap dinding kanan: pintu kaca kusen aluminium terbuka langsung menuju Ruangan 4 (Control Room), lemari kabinet rendah 3 susun hitam di tengah, dan jendela kaca gelap 3 panel di kanan.',
+      'Menghadap dinding kanan: pintu kaca gelap kusen aluminium terbuka menuju Ruangan 4 (Control Room) lengkap dengan undakan keset WELCOME & sepatu, lemari kabinet rendah 3 susun hitam di tengah, dan jendela kaca gelap 3 panel di kanan.',
   },
   {
     id: 'kiri',
     label: 'Tampilan Kiri',
     shortLabel: 'Tampilan Kiri',
-    fileName: 'Tampilan Kiri (Tampilan_kiri_634fbe9b.jpeg)',
-    imgSrc: '/assets/aistudio/Tampilan_kiri_634fbe9b.jpeg',
+    fileName: 'Tampilan-kiri.jpg',
+    imgSrc: '/assets/aistudio/Tampilan-kiri.jpg',
     wallSide: 'Sisi Kiri (-Z / Dinding Bawah Denah)',
     description:
-      'Menghadap dinding kiri: papan tulis (whiteboard) di kiri atas, TV layar datar hitam di kanan atas, sofa kain abu-abu 2 dudukan + tas ransel, meja tamu hitam (kardus & tumbler), serta 2 kursi kerja putar biru.',
+      'Menghadap dinding kiri: papan tulis (whiteboard) bergambar skema & stiker di kiri atas, TV layar datar hitam di kanan atas, sofa kain abu-abu 2 dudukan + tas ransel hitam, meja tamu garis hitam (kardus, gelas, botol air, laptop & tumbler hitam), serta 2 kursi kerja putar biru beroda 5 (1 dengan rompi kuning).',
   },
 ];
 
@@ -216,9 +219,10 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   const isPresetChangeRef = useRef<boolean>(false);
   const [activePreset, setActivePreset] = useState<CameraPresetType>(initialPreset);
   const [showMasterplanPip, setShowMasterplanPip] = useState<boolean>(false);
-  const [pipTab, setPipTab] = useState<'speaker' | 'lantai1' | 'lantai2' | 'parkir' | 'masterplan'>('speaker');
+  const [pipTab, setPipTab] = useState<'speaker' | 'lantai1' | 'lantai2' | 'lantai3' | 'parkir' | 'masterplan'>('speaker');
   const [speakerCategoryFilter, setSpeakerCategoryFilter] = useState<SpeakerCategory | 'all'>('all');
-  const [isSpeakerLegendMinimized, setIsSpeakerLegendMinimized] = useState<boolean>(false);
+  const [isSpeakerLegendMinimized, setIsSpeakerLegendMinimized] = useState<boolean>(true);
+  const [isTopBarMinimized, setIsTopBarMinimized] = useState<boolean>(true);
 
   // Red-Marked Room Complex on Lt. 1 Eksisting state
   const [hotspotScreenPos, setHotspotScreenPos] = useState<{ x: number; y: number; visible: boolean }>({
@@ -229,6 +233,14 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
   const [showEksistingRoomPanel, setShowEksistingRoomPanel] = useState<boolean>(false);
   const [selectedEksistingRoomCode, setSelectedEksistingRoomCode] = useState<number | null>(null);
   const [room1DirectionView, setRoom1DirectionView] = useState<Room1DirectionType>('top');
+  const [showPaBlockDiagramPanel, setShowPaBlockDiagramPanel] = useState<boolean>(false);
+  const [paBlockTab, setPaBlockTab] = useState<'schematic' | 'lt1' | 'lt2' | 'abd_sheets'>('schematic');
+  const [selectedAbdSheet, setSelectedAbdSheet] = useState<
+    '0001c' | '0002' | '0102' | '0103' | 'jbss_lt1' | 'jbss_lt2'
+  >('0001c');
+  const [activePaNodeId, setActivePaNodeId] = useState<
+    'mdf_ss' | 'jbss_1_3' | 'jbss_1_7' | 'jbss_2_2' | 'jbss_2_4' | 'lt1_overview' | 'lt2_overview'
+  >('lt1_overview');
 
   // Initialize Three.js scene once
   useEffect(() => {
@@ -393,6 +405,24 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
     managerRef.current?.setSpeakerCategoryFilter(nextCat);
   };
 
+  const handleFocusEksistingPaNode = (
+    nodeId: 'mdf_ss' | 'jbss_1_3' | 'jbss_1_7' | 'jbss_2_2' | 'jbss_2_4' | 'lt1_overview' | 'lt2_overview'
+  ) => {
+    isPresetChangeRef.current = true;
+    setActivePaNodeId(nodeId);
+    setShowEksistingRoomPanel(false);
+    setShowPaBlockDiagramPanel(true);
+    if (nodeId === 'jbss_2_2' || nodeId === 'jbss_2_4' || nodeId === 'lt2_overview') {
+      setActivePreset('lantai2');
+    } else {
+      setActivePreset('lantai1_eksisting');
+    }
+    managerRef.current?.focusEksistingPaNode(nodeId);
+    setTimeout(() => {
+      isPresetChangeRef.current = false;
+    }, 60);
+  };
+
   const ceilingCount = speakers.filter((s) => s.category === 'ceiling').length;
   const columnCount = speakers.filter((s) => s.category === 'column').length;
   const hornCount = speakers.filter((s) => s.category === 'horn').length;
@@ -487,247 +517,332 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         </div>
       )}
 
-      {/* Top Floating Camera Focus & Visualizer Mode Bar */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-max max-w-[96vw]">
-        <div className="flex flex-wrap items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 shadow-2xl text-xs select-none backdrop-blur-md">
-          {/* Camera Focus Presets */}
-          <span className="text-[10px] uppercase font-mono text-slate-400 mr-1 flex items-center gap-1 font-semibold">
-            <Compass className="w-3.5 h-3.5 text-sky-400" /> Fokus WAAA:
+      {/* Top Floating Camera Focus & Visualizer Mode Bar (Skeuomorphism + Violet Sans) */}
+      <div
+        style={{
+          fontFamily: "'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif",
+        }}
+        className="font-violet-sans absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 w-max max-w-[96vw]"
+      >
+        <div
+          style={{
+            fontFamily: "'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif",
+          }}
+          className="font-violet-sans skeuo-chassis flex flex-wrap items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs text-slate-900 select-none transition-all duration-200"
+        >
+          {/* Camera Focus Presets Label (Recessed LCD Display) */}
+          <span className="skeuo-lcd px-2.5 py-1 text-[10px] uppercase mr-0.5 flex items-center gap-1.5 font-extrabold tracking-wider text-sky-300">
+            <span className="w-2 h-2 rounded-full bg-sky-400 border border-sky-900 shadow-[0_0_6px_#38bdf8,inset_0_1px_1px_#fff]" />
+            <Compass className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>Fokus WAAA:</span>
           </span>
 
-          <button
-            onClick={() => handleSelectPreset('overview')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-              activePreset === 'overview' && !selectedZoneId
-                ? 'bg-sky-500 text-white shadow-sm'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin Makassar (WAAA) beserta Atap Bandara"
-          >
-            <Building2 className="w-3 h-3" />
-            <span>Semua Terminal</span>
-          </button>
+          {isTopBarMinimized ? (
+            <button
+              type="button"
+              onClick={() => setIsTopBarMinimized(false)}
+              className="skeuo-btn-sky flex items-center gap-1.5 px-3 py-1 text-xs font-extrabold transition-all cursor-pointer"
+              title="Tampilkan Kembali Menu Fokus WAAA & Layer"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-sky-950" />
+              <span>Buka Menu Fokus & Layer</span>
+              <ChevronDown className="w-3.5 h-3.5 text-sky-950" />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => handleSelectPreset('overview')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'overview' && !selectedZoneId
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilkan Seluruh Kompleks Terminal Bandara Sultan Hasanuddin Makassar (WAAA) beserta Atap Bandara"
+              >
+                <Building2 className="w-3.5 h-3.5 text-sky-700" />
+                <span>Semua Terminal</span>
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('lantai1')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-              activePreset === 'lantai1'
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-amber-300 hover:bg-slate-800 border border-amber-500/30'
-            }`}
-            title="Tampilan Mockup Lantai 1 (Cutaway Area Klaim Bagasi, BHS Hall, Terminal Utama, Eksisting & Selatan)"
-          >
-            <Layers className="w-3 h-3" />
-            <span>Mockup Lantai 1</span>
-          </button>
+              <button
+                onClick={() => handleSelectPreset('lantai1')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'lantai1'
+                    ? 'skeuo-btn-amber skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilan Mockup Lantai 1 (Cutaway Area Klaim Bagasi, BHS Hall, Terminal Utama, Eksisting & Selatan)"
+              >
+                <Layers className="w-3.5 h-3.5 text-amber-700" />
+                <span>Mockup Lantai 1</span>
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('lantai1_eksisting')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-              activePreset === 'lantai1_eksisting' || activePreset === 'lantai1_eksisting_ruangan'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-amber-200 hover:bg-slate-800 border border-amber-400/40 bg-amber-950/30'
-            }`}
-            title="Tampilan Khusus Mockup Lantai 1 — Terminal Eksisting (Sesuai Referensi Denah 3D Lantai 1 Terminal Eksisting)"
-          >
-            <Layers className="w-3 h-3" />
-            <span>Lt. 1 Eksisting</span>
-          </button>
+              <button
+                onClick={() => handleSelectPreset('lantai1_eksisting')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'lantai1_eksisting' || activePreset === 'lantai1_eksisting_ruangan'
+                    ? 'skeuo-btn-amber skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilan Khusus Mockup Lantai 1 — Terminal Eksisting (Sesuai Referensi Denah 3D Lantai 1 Terminal Eksisting)"
+              >
+                <Layers className="w-3.5 h-3.5 text-amber-700" />
+                <span>Lt. 1 Eksisting</span>
+              </button>
 
-          <button
-            onClick={() => handleOpenRedMarkedRoomComplex(null)}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 border border-dashed ${
-              activePreset === 'lantai1_eksisting_ruangan' && showEksistingRoomPanel
-                ? 'bg-red-600 text-white border-red-200 shadow-sm'
-                : 'text-red-300 hover:bg-red-950/60 border-red-500/60 bg-red-950/30'
-            }`}
-            title="Buka Ruangan Garis Merah pada Lt. 1 Eksisting (1. R. Standby, 2. Storage, 3. Restroom, 4. Control Room, 5. Data Center Lama, 6. Data Center Baru)"
-          >
-            <Server className="w-3 h-3 text-red-400" />
-            <span>AIRPORT TECHNOLOGY</span>
-          </button>
+              <button
+                onClick={() => handleOpenRedMarkedRoomComplex(null)}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'lantai1_eksisting_ruangan' && showEksistingRoomPanel
+                    ? 'skeuo-btn-crimson skeuo-btn-pressed'
+                    : 'skeuo-btn-crimson'
+                }`}
+                title="Buka Ruangan Garis Merah pada Lt. 1 Eksisting (1. R. Standby, 2. Storage, 3. Restroom, 4. Control Room, 5. Data Center Lama, 6. Data Center Baru)"
+              >
+                <Server className="w-3.5 h-3.5 text-white" />
+                <span>AIRPORT TECHNOLOGY</span>
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('lantai2')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-              activePreset === 'lantai2'
-                ? 'bg-emerald-500 text-white shadow-sm'
-                : 'text-emerald-300 hover:bg-slate-800 border border-emerald-500/30'
-            }`}
-            title="Tampilan Mockup Lantai 2 (Cutaway Terminal Utama, Terminal Eksisting & Terminal Selatan)"
-          >
-            <Layers className="w-3 h-3" />
-            <span>Mockup Lantai 2</span>
-          </button>
+              <button
+                onClick={() => handleSelectPreset('lantai2')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'lantai2'
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilan Mockup Lantai 2 (Cutaway Terminal Utama, Terminal Eksisting & Terminal Selatan)"
+              >
+                <Layers className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Mockup Lantai 2</span>
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('utama')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-1' || activePreset === 'utama'
-                ? 'bg-sky-500/25 text-sky-300 border border-sky-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 1: Terminal Utama"
-          >
-            Terminal Utama
-          </button>
+              <button
+                onClick={() => {
+                  const nextOpen = !showPaBlockDiagramPanel;
+                  setShowPaBlockDiagramPanel(nextOpen);
+                  if (nextOpen) {
+                    setShowEksistingRoomPanel(false);
+                    if (activePreset === 'lantai2') {
+                      handleFocusEksistingPaNode('lt2_overview');
+                    } else {
+                      handleFocusEksistingPaNode('lt1_overview');
+                    }
+                  }
+                }}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  showPaBlockDiagramPanel
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-btn-emerald'
+                }`}
+                title="Blok Diagram Sistem Public Address Terminal Eksisting Lantai 1 & 2 (WIKA-ABD-BSH-ES-TE-0001C-00, 0002-00, 0102-00, 0103-00)"
+              >
+                <Volume2 className="w-3.5 h-3.5 text-emerald-950" />
+                <span>Blok Diagram PA Eksisting (Lt. 1 & 2)</span>
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('curbside')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              activePreset === 'curbside'
-                ? 'bg-teal-500/25 text-teal-300 border border-teal-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Tampilan di Depan Terminal Utama & Jalanan"
-          >
-            Depan Terminal & Jalanan
-          </button>
+              <button
+                onClick={() => handleSelectPreset('lantai3')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activePreset === 'lantai3'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilan Mockup Lt. 3 Terminal Utama (Sesuai Referensi 3D Lantai 3 Terminal Utama)"
+              >
+                <Layers className="w-3.5 h-3.5 text-sky-700" />
+                <span>Mockup Lt. 3 Terminal Utama</span>
+              </button>
 
-          <button
-            onClick={() => {
-              if (activePreset === 'lantai1' || activePreset === 'lantai1_eksisting' || activePreset === 'lantai1_eksisting_ruangan') {
-                handleSelectPreset('lantai1_eksisting');
-              } else {
-                handleSelectPreset('eksisting');
-              }
-            }}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-2' || activePreset === 'eksisting' || activePreset === 'lantai1_eksisting'
-                ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 2: Terminal Eksisting (Gate 07–12 / Mockup Lantai 1 Eksisting)"
-          >
-            Terminal Eksisting
-          </button>
+              <button
+                onClick={() => handleSelectPreset('utama')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  selectedZoneId === 'macro-1' || activePreset === 'utama'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Zona 1: Terminal Utama"
+              >
+                Terminal Utama
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('selatan')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-3' || activePreset === 'selatan'
-                ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 3: Terminal Selatan (Rotunda Gate 01–06)"
-          >
-            Terminal Selatan
-          </button>
+              <button
+                onClick={() => handleSelectPreset('curbside')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  activePreset === 'curbside'
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilan di Depan Terminal Utama & Jalanan"
+              >
+                Depan Terminal & Jalanan
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('apron')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-4' || activePreset === 'apron'
-                ? 'bg-purple-500/25 text-purple-300 border border-purple-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 4: Apron, 12 Garbarata & Pesawat Parkir"
-          >
-            Apron & Garbarata
-          </button>
+              <button
+                onClick={() => {
+                  if (
+                    activePreset === 'lantai1' ||
+                    activePreset === 'lantai1_eksisting' ||
+                    activePreset === 'lantai1_eksisting_ruangan'
+                  ) {
+                    handleSelectPreset('lantai1_eksisting');
+                  } else {
+                    handleSelectPreset('eksisting');
+                  }
+                }}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  selectedZoneId === 'macro-2' ||
+                  activePreset === 'eksisting' ||
+                  activePreset === 'lantai1_eksisting'
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Zona 2: Terminal Eksisting (Gate 07–12 / Mockup Lantai 1 Eksisting)"
+              >
+                Terminal Eksisting
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('parking')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              selectedZoneId === 'macro-5' || activePreset === 'parking'
-                ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Zona 5: Gedung Parkir, Jembatan Penghubung & Jalanan U-Loop"
-          >
-            Gedung Parkir
-          </button>
+              <button
+                onClick={() => handleSelectPreset('selatan')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  selectedZoneId === 'macro-3' || activePreset === 'selatan'
+                    ? 'skeuo-btn-violet skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Zona 3: Terminal Selatan (Rotunda Gate 01–06)"
+              >
+                Terminal Selatan
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('tower')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              activePreset === 'tower'
-                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Fokus Menara Pengawas Lalu Lintas Udara (ATC Tower WAAA)"
-          >
-            ATC Tower
-          </button>
+              <button
+                onClick={() => handleSelectPreset('apron')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  selectedZoneId === 'macro-4' || activePreset === 'apron'
+                    ? 'skeuo-btn-violet skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Zona 4: Apron, 12 Garbarata & Pesawat Parkir"
+              >
+                Apron & Garbarata
+              </button>
 
-          <button
-            onClick={() => handleSelectPreset('tollgate')}
-            className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-              activePreset === 'tollgate'
-                ? 'bg-rose-500/25 text-rose-300 border border-rose-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Pintu Gerbang Tol Masuk Bandara Internasional Sultan Hasanuddin"
-          >
-            Gerbang Tol
-          </button>
+              <button
+                onClick={() => handleSelectPreset('parking')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  selectedZoneId === 'macro-5' || activePreset === 'parking'
+                    ? 'skeuo-btn-amber skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Zona 5: Gedung Parkir, Jembatan Penghubung & Jalanan U-Loop"
+              >
+                Gedung Parkir
+              </button>
 
-          <div className="h-4 w-[1px] bg-slate-700 mx-1 hidden sm:block" />
+              <button
+                onClick={() => handleSelectPreset('tower')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  activePreset === 'tower'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Fokus Menara Pengawas Lalu Lintas Udara (ATC Tower WAAA)"
+              >
+                ATC Tower
+              </button>
 
-          {/* Visualizer Mode Toggles */}
-          <span className="text-[10px] uppercase font-mono text-slate-400 mr-1 flex items-center gap-1 font-semibold">
-            <Layers className="w-3.5 h-3.5 text-cyan-400" /> Layer:
-          </span>
+              <button
+                onClick={() => handleSelectPreset('tollgate')}
+                className={`px-2.5 py-1 font-bold transition-all cursor-pointer ${
+                  activePreset === 'tollgate'
+                    ? 'skeuo-btn-crimson skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Pintu Gerbang Tol Masuk Bandara Internasional Sultan Hasanuddin"
+              >
+                Gerbang Tol
+              </button>
 
-          <button
-            onClick={() => onSetVisualizerMode('bim_normal')}
-            className={`px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              visualizerMode === 'bim_normal'
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-400 hover:bg-slate-800'
-            }`}
-            title="BIM 3D Architectural View"
-          >
-            BIM 3D
-          </button>
+              <div className="h-5 w-[2px] bg-slate-500/50 shadow-[1px_0_0_rgba(255,255,255,0.75)] mx-1 hidden sm:block" />
 
-          <button
-            onClick={() => onSetVisualizerMode('stipa_heatmap')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              visualizerMode === 'stipa_heatmap'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                : 'text-slate-400 hover:bg-slate-800'
-            }`}
-            title="Speech Transmission Index (STI-PA) Heatmap"
-          >
-            <Activity className="w-3 h-3" />
-            <span>STI-PA</span>
-          </button>
+              {/* Visualizer Mode Toggles Label (Recessed LCD Display) */}
+              <span className="skeuo-lcd px-2.5 py-1 text-[10px] uppercase mr-0.5 flex items-center gap-1.5 font-extrabold tracking-wider text-cyan-300">
+                <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span>Layer:</span>
+              </span>
 
-          <button
-            onClick={() => onSetVisualizerMode('cable_rstp')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              visualizerMode === 'cable_rstp'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
-                : 'text-slate-400 hover:bg-slate-800'
-            }`}
-            title="20kHz Pilot Tone Cable Network & Dual RSTP"
-          >
-            <Wifi className="w-3 h-3" />
-            <span>Kabel RSTP</span>
-          </button>
+              <button
+                onClick={() => onSetVisualizerMode('bim_normal')}
+                className={`px-2.5 py-1 font-extrabold transition-all cursor-pointer ${
+                  visualizerMode === 'bim_normal'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="BIM 3D Architectural View"
+              >
+                BIM 3D
+              </button>
 
-          <button
-            onClick={() => setShowMasterplanPip(!showMasterplanPip)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-              showMasterplanPip
-                ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50'
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            title="Tampilkan / Sembunyikan Referensi Speaker 3D Pixar & Denah WAAA"
-          >
-            <MapIcon className="w-3 h-3" />
-            <span>Referensi WAAA</span>
-          </button>
+              <button
+                onClick={() => onSetVisualizerMode('stipa_heatmap')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 font-extrabold transition-all cursor-pointer ${
+                  visualizerMode === 'stipa_heatmap'
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Speech Transmission Index (STI-PA) Heatmap"
+              >
+                <Activity className="w-3.5 h-3.5 text-emerald-700" />
+                <span>STI-PA</span>
+              </button>
+
+              <button
+                onClick={() => onSetVisualizerMode('cable_rstp')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 font-extrabold transition-all cursor-pointer ${
+                  visualizerMode === 'cable_rstp'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="20kHz Pilot Tone Cable Network & Dual RSTP"
+              >
+                <Wifi className="w-3.5 h-3.5 text-sky-700" />
+                <span>Kabel RSTP</span>
+              </button>
+
+              <button
+                onClick={() => setShowMasterplanPip(!showMasterplanPip)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 font-extrabold transition-all cursor-pointer ${
+                  showMasterplanPip
+                    ? 'skeuo-btn-amber skeuo-btn-pressed'
+                    : 'skeuo-btn'
+                }`}
+                title="Tampilkan / Sembunyikan Referensi Speaker 3D Pixar & Denah WAAA"
+              >
+                <MapIcon className="w-3.5 h-3.5 text-amber-700" />
+                <span>Referensi WAAA</span>
+              </button>
+
+              <div className="h-5 w-[2px] bg-slate-500/50 shadow-[1px_0_0_rgba(255,255,255,0.75)] mx-0.5 hidden sm:block" />
+
+              {/* Minimize Top Bar Button */}
+              <button
+                type="button"
+                onClick={() => setIsTopBarMinimized(true)}
+                className="skeuo-btn flex items-center gap-1 px-2.5 py-1 font-extrabold text-slate-900 cursor-pointer"
+                title="Minimize Bar Fokus WAAA & Layer"
+              >
+                <Minimize2 className="w-3.5 h-3.5 text-sky-700" />
+                <span>Minimize</span>
+                <ChevronUp className="w-3.5 h-3.5 text-slate-700" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Active Focus Banner with Quick Return to All Terminals */}
         {(activeZoneObj || activePreset !== 'overview' || speakerCategoryFilter !== 'all') && (
-          <div className="flex flex-wrap items-center justify-center gap-3 px-3.5 py-1.5 rounded-xl bg-slate-900/95 border border-sky-500/40 shadow-lg text-xs text-slate-100 backdrop-blur-md">
-            <div className="flex items-center gap-1.5">
+          <div className="skeuo-chassis flex flex-wrap items-center justify-center gap-2.5 px-3.5 py-1.5 rounded-xl text-xs text-slate-900">
+            <div className="skeuo-lcd flex items-center gap-1.5 px-2.5 py-1">
               <Focus className="w-3.5 h-3.5 text-sky-400" />
-              <span className="font-mono text-[11px] text-slate-400">Fokus:</span>
-              <span className="font-bold text-sky-300">
+              <span className="text-[11px] text-slate-400 font-bold">Fokus:</span>
+              <span className="font-extrabold text-sky-300">
                 {activeZoneObj
                   ? `${activeZoneObj.code} — ${activeZoneObj.name}`
                   : activePreset === 'lantai1'
@@ -738,6 +853,8 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                   ? 'AIRPORT TECHNOLOGY / ELBAN UPG'
                   : activePreset === 'lantai2'
                   ? 'Mockup Lantai 2 (Terminal Utama, Eksisting & Selatan)'
+                  : activePreset === 'lantai3'
+                  ? 'Mockup Lt. 3 Terminal Utama (3 Void Oval, 5 Bay Depan, Restroom & Concourse)'
                   : activePreset === 'curbside'
                   ? 'Tampilan Depan Terminal Utama & Jalanan'
                   : activePreset === 'tower'
@@ -747,7 +864,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                   : 'Kompleks Terminal Sultan Hasanuddin'}
               </span>
               {speakerCategoryFilter !== 'all' && (
-                <span className="ml-1 px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-200 font-mono text-[10px]">
+                <span className="ml-1 px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-200 text-[10px] font-bold">
                   Filter: {speakerCategoryFilter.toUpperCase()} SPEAKER
                 </span>
               )}
@@ -756,7 +873,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
             {isLantai1Active && (
               <button
                 onClick={() => handleOpenRedMarkedRoomComplex(null)}
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] border border-emerald-400/60 transition-colors cursor-pointer"
+                className="skeuo-btn-emerald flex items-center gap-1 px-2.5 py-1 font-extrabold text-[11px] cursor-pointer"
               >
                 <Eye className="w-3 h-3" />
                 <span>AIRPORT TECHNOLOGY / ELBAN UPG</span>
@@ -766,7 +883,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
             {activePreset === 'lantai1_eksisting_ruangan' && (
               <button
                 onClick={() => handleSelectPreset('lantai1_eksisting')}
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[11px] transition-colors cursor-pointer"
+                className="skeuo-btn-amber flex items-center gap-1 px-2.5 py-1 font-extrabold text-[11px] cursor-pointer"
               >
                 <ChevronLeft className="w-3 h-3" />
                 <span>Kembali ke Lt. 1 Eksisting</span>
@@ -775,10 +892,27 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
 
             <button
               onClick={() => {
+                setShowEksistingRoomPanel(false);
+                setShowPaBlockDiagramPanel(true);
+                if (activePreset === 'lantai2') {
+                  handleFocusEksistingPaNode('lt2_overview');
+                } else {
+                  handleFocusEksistingPaNode('lt1_overview');
+                }
+              }}
+              className="skeuo-btn-emerald flex items-center gap-1 px-2.5 py-1 font-extrabold text-[11px] cursor-pointer"
+              title="Buka Blok Diagram Sistem Public Address Terminal Eksisting Lantai 1 & 2"
+            >
+              <Volume2 className="w-3 h-3" />
+              <span>Blok Diagram PA Eksisting (Lt. 1 & 2)</span>
+            </button>
+
+            <button
+              onClick={() => {
                 handleSelectPreset('overview');
                 handleSelectSpeakerCategory('all');
               }}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[11px] transition-colors cursor-pointer"
+              className="skeuo-btn-sky flex items-center gap-1 px-2.5 py-1 font-extrabold text-[11px] cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset Tampilan</span>
@@ -786,6 +920,515 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
           </div>
         )}
       </div>
+
+      {/* Interactive Panel: Blok Diagram Sistem Public Address Terminal Eksisting Lantai 1 & 2 (097/ABD-MEP/F.DBG-BSH/V/2025) */}
+      {showPaBlockDiagramPanel && (
+        <div
+          style={{
+            fontFamily: "'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif",
+          }}
+          className="font-violet-sans absolute top-20 right-4 bottom-28 z-30 w-[390px] sm:w-[495px] flex flex-col rounded-2xl bg-slate-900/95 border-2 border-emerald-500/85 shadow-2xl overflow-hidden backdrop-blur-md select-none"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-gradient-to-r from-emerald-950/90 via-slate-900 to-slate-950">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-500/30" />
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                  Blok Diagram PA — Terminal Eksisting (Lt. 1 & 2)
+                </h3>
+                <p className="text-[10px] text-emerald-300 font-mono">
+                  097/ABD-MEP/F.DBG-BSH/V/2025 • WIKA-ABD-BSH-ES-TE-0001C-00
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleFocusEksistingPaNode('lt1_overview')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                  activePreset === 'lantai1_eksisting' || activePreset === 'lantai1'
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300'
+                }`}
+              >
+                3D Lt. 1
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFocusEksistingPaNode('lt2_overview')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                  activePreset === 'lantai2'
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-slate-800 hover:bg-slate-700 text-emerald-300'
+                }`}
+              >
+                3D Lt. 2
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPaBlockDiagramPanel(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                title="Tutup Panel Blok Diagram PA"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-Navigation Tabs */}
+          <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950/90 text-[10px] font-extrabold">
+            <button
+              type="button"
+              onClick={() => setPaBlockTab('schematic')}
+              className={`py-2 text-center transition-colors cursor-pointer ${
+                paBlockTab === 'schematic'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-b-2 border-emerald-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Rack 42U & MDF-SS
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPaBlockTab('lt1');
+                handleFocusEksistingPaNode('lt1_overview');
+              }}
+              className={`py-2 text-center transition-colors cursor-pointer ${
+                paBlockTab === 'lt1'
+                  ? 'bg-sky-500/20 text-sky-300 border-b-2 border-sky-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Lantai 1 (JBSS 1.3 & 1.7)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPaBlockTab('lt2');
+                handleFocusEksistingPaNode('lt2_overview');
+              }}
+              className={`py-2 text-center transition-colors cursor-pointer ${
+                paBlockTab === 'lt2'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-b-2 border-emerald-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Lantai 2 (JBSS 2.2 & 2.4)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaBlockTab('abd_sheets')}
+              className={`py-2 text-center transition-colors cursor-pointer ${
+                paBlockTab === 'abd_sheets'
+                  ? 'bg-amber-500/20 text-amber-300 border-b-2 border-amber-400'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Gambar ABD PDF
+            </button>
+          </div>
+
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+            {/* Quick 3D Camera Focus Bar for MDF-SS & 4 JBSS Boxes */}
+            <div className="rounded-xl border border-emerald-500/50 bg-slate-950 p-2.5 space-y-2">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                  <Focus className="w-3.5 h-3.5" /> Fokus Kamera 3D ke Titik Distribusi PA:
+                </span>
+                <span className="font-mono text-slate-400">Klik untuk Zoom 3D</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1">
+                {[
+                  { id: 'mdf_ss', label: 'MDF-SS & Rack', sub: 'R. Kontrol Lt.1' },
+                  { id: 'jbss_1_3', label: 'JBSS 1.3', sub: 'Lt.1 Timur' },
+                  { id: 'jbss_1_7', label: 'JBSS 1.7', sub: 'Lt.1 Barat' },
+                  { id: 'jbss_2_2', label: 'JBSS 2.2', sub: 'Lt.2 Intl' },
+                  { id: 'jbss_2_4', label: 'JBSS 2.4', sub: 'Lt.2 Dom' },
+                ].map((nd) => {
+                  const isActive = activePaNodeId === nd.id;
+                  return (
+                    <button
+                      key={nd.id}
+                      type="button"
+                      onClick={() =>
+                        handleFocusEksistingPaNode(
+                          nd.id as
+                            | 'mdf_ss'
+                            | 'jbss_1_3'
+                            | 'jbss_1_7'
+                            | 'jbss_2_2'
+                            | 'jbss_2_4'
+                        )
+                      }
+                      className={`p-1.5 rounded-lg border text-center transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-emerald-600/35 border-emerald-400 text-white shadow'
+                          : 'bg-slate-900 border-slate-800 hover:border-emerald-500/50 text-slate-300'
+                      }`}
+                    >
+                      <div className="font-extrabold text-[10px] truncate">{nd.label}</div>
+                      <div className="text-[8px] text-emerald-300/90 font-mono truncate">{nd.sub}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {paBlockTab === 'schematic' && (
+              <div className="space-y-3">
+                {/* Block 1: Input Sources & Server Room Rack 05 TE */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-sky-500/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-300 font-mono text-[10px] font-bold">
+                      1. INPUT AUDIO, PAGING MIC & R. SERVER (RACK 05 TE)
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">UTP Cat.6 & FO OS2</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div className="font-bold text-sky-300">Announcing & Car Call</div>
+                      <div className="text-slate-300 mt-0.5">
+                        • 1× Paging Mic + PC (Announcing Room)
+                        <br />• 1× Paging Mic + PC (Car Call)
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div className="font-bold text-sky-300">Gate Area Paging Mic</div>
+                      <div className="text-slate-300 mt-0.5">
+                        • 12× Gate Area Paging Mic
+                        <br />• 6× Lt. 1 & 13× Lt. 2 Paging Mic
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div className="font-bold text-emerald-300">Rack 05 TE & 3× Barix Dante</div>
+                      <div className="text-slate-300 mt-0.5">
+                        • 3× Barix Audio Encoder/Decoder
+                        <br />• JBRD 1.6 (TE) + Music Player BGM
+                        <br />• Interkoneksi MCFA TE (FRC 2×1.5mm²)
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div className="font-bold text-amber-300">Interkoneksi Fiber Optic</div>
+                      <div className="text-slate-300 mt-0.5">
+                        • 2×24 Core F.O Cable OS2
+                        <br />• JBRD 2.3 OTB to TU (Port 13 & 14)
+                        <br />• JBRD 2.3 OTB to GP (Port 13 & 14)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Block 2: Free Standing Rack 42U (WIKA-ABD-BSH-ES-TE-0002-00) */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-mono text-[10px] font-bold">
+                      2. FREE STANDING RACK 42U (2000×600mm) & MDF-SS
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleFocusEksistingPaNode('mdf_ss')}
+                      className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer"
+                    >
+                      Lihat 3D Rack
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="px-2.5 py-1 rounded bg-sky-950/80 border border-sky-500/40 text-sky-200 flex justify-between">
+                      <span>HUB SWITCH 24-PORT GIGABIT</span>
+                      <span>UTP CAT.6 / AC 220V</span>
+                    </div>
+                    <div className="px-2.5 py-1 rounded bg-sky-950/80 border border-sky-500/40 text-sky-200 flex justify-between">
+                      <span>PRAESIDIO NETWORK CONTROLLER (NCO)</span>
+                      <span>AUDIO LINK / AC 220V</span>
+                    </div>
+                    <div className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 flex justify-between">
+                      <span>PRASENSA NETWORK CONTROLLER (SYSCONT)</span>
+                      <span>OMNEO / AC 220V</span>
+                    </div>
+                    {[
+                      { unit: 'AMP #1 (PA)', target: 'JBSS 2.4 LT. 2 (Public Area Z1–Z4)', emergency: false },
+                      { unit: 'AMP #2 (DAR)', target: 'JBSS 2.4 LT. 2 (Emergency Z1–Z4)', emergency: true },
+                      { unit: 'AMP #3 (PA)', target: 'JBSS 2.2 LT. 2 (Public Area Z1–Z4)', emergency: false },
+                      { unit: 'AMP #4 (DAR)', target: 'JBSS 2.2 LT. 2 (Emergency Z1–Z4)', emergency: true },
+                      { unit: 'AMP #5 (PA)', target: 'JBSS 1.7 LT. 1 (Public Area Z1–Z4)', emergency: false },
+                      { unit: 'AMP #6 (DAR)', target: 'JBSS 1.7 LT. 1 (Emergency Z1–Z4)', emergency: true },
+                      { unit: 'AMP #7 (PA)', target: 'JBSS 1.3 LT. 1 (Public Area Z1–Z4)', emergency: false },
+                      { unit: 'AMP #8 (DAR)', target: 'JBSS 1.3 LT. 1 (Emergency Z1–Z4)', emergency: true },
+                      { unit: 'AMP #9 (DAR)', target: 'JBSS B1.2 LT. BASEMENT (Emergency)', emergency: true },
+                    ].map((amp, idx) => (
+                      <div
+                        key={idx}
+                        className={`px-2.5 py-1 rounded border flex items-center justify-between ${
+                          amp.emergency
+                            ? 'bg-rose-950/50 border-rose-500/40 text-rose-200'
+                            : 'bg-slate-900 border-slate-700 text-slate-200'
+                        }`}
+                      >
+                        <span className="font-bold">PRASENSA 600W 4CH — {amp.unit}</span>
+                        <span className="text-[9px]">{amp.target}</span>
+                      </div>
+                    ))}
+                    <div className="px-2.5 py-1 rounded bg-amber-950/60 border border-amber-500/40 text-amber-200 flex justify-between">
+                      <span>PRASENSA MASTER POWER SUPPLY + MUSIC PLAYER</span>
+                      <span>48 VAC / 220 VAC</span>
+                    </div>
+                    <div className="px-2.5 py-1.5 rounded bg-amber-500/20 border border-amber-400 text-amber-200 font-bold text-center">
+                      MDF-SS → Kabel Tray NYMHY 3×2.5 mm² & Conduit Ø20mm NYMHY 3×1.5 mm²
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {paBlockTab === 'lt1' && (
+              <div className="space-y-3">
+                {/* JBSS 1.3 Card */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-sky-500/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-sky-300">
+                        JBSS 1.3 (JBSS-1.3.Z1.2) — Lantai 1 Timur (Grid C-D / 18-21)
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        Total: 142 Ceiling 6W (852W) • 11 Column 15W (165W) • 3 Wall 6W (18W) • 3 AVC
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleFocusEksistingPaNode('jbss_1_3')}
+                      className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold cursor-pointer shrink-0"
+                    >
+                      Fokus 3D JBSS 1.3
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-sky-300 font-bold">JBSS Z3.1.1 (Public Area)</span>
+                      <span className="text-slate-200">16 Ceiling 6W • 11 Column 15W • 3 Wall 6W</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-sky-300 font-bold">JBSS Z3.1.2 (Public Area)</span>
+                      <span className="text-slate-200">36 bh Ceiling Speaker 6W (216W)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-sky-300 font-bold">JBSS Z3.1.3 (Public / Transit)</span>
+                      <span className="text-slate-200">27 bh Ceiling Speaker 6W (162W)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z3.1.4 (Emergency)</span>
+                      <span className="text-rose-100">25 Ceiling 6W (Office, R.ME, Tangga Darurat)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z3.1.5 (Emergency)</span>
+                      <span className="text-rose-100">38 Ceiling 6W (Kantin, Toilet, AOCC & FLOPS)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* JBSS 1.7 Card */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-sky-500/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-sky-300">
+                        JBSS 1.7 (JBSS-1.7.Z1.2) — Lantai 1 Barat (Grid C-D / 28-30)
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        Total: 200 Ceiling 6W (1200W) • 20 Column 15W (240W) • 3 Wall 6W (18W) • 6 AVC
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleFocusEksistingPaNode('jbss_1_7')}
+                      className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold cursor-pointer shrink-0"
+                    >
+                      Fokus 3D JBSS 1.7
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-sky-300 font-bold">JBSS Z7.1.1 (Public Domestik)</span>
+                      <span className="text-slate-200">40 bh Ceiling Speaker 6W (240W)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-sky-300 font-bold">JBSS Z7.1.2 (Public Domestik)</span>
+                      <span className="text-slate-200">42 bh Ceiling 6W (30+12) • 8 bh Column 15W</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z7.1.3 (Emergency)</span>
+                      <span className="text-rose-100">89 bh Ceiling Speaker 6W (58+31 • 534W)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z7.1.4 (Emergency)</span>
+                      <span className="text-rose-100">28 bh Ceiling Speaker 6W (168W)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z7.1.5 (Emergency)</span>
+                      <span className="text-rose-100">13 Ceiling 6W • 12 Column 15W • 3 Wall 6W</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {paBlockTab === 'lt2' && (
+              <div className="space-y-3">
+                {/* JBSS 2.2 Card */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-emerald-300">
+                        JBSS 2.2 (JBSS-2.2.Z2.2) — Lantai 2 Timur (Keberangkatan Internasional)
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        Total: 71 Ceiling 6W (426W) • 19 Column 15W (285W) • 8 Wall 6W (48W)
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleFocusEksistingPaNode('jbss_2_2')}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer shrink-0"
+                    >
+                      Fokus 3D JBSS 2.2
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-emerald-300 font-bold">JBSS Z2.1.1 (Public Intl)</span>
+                      <span className="text-slate-200">25 bh Ceiling Speaker 6W (Gate 11–12)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-emerald-300 font-bold">JBSS Z2.1.2 (Public Intl)</span>
+                      <span className="text-slate-200">29 bh Ceiling 6W • 8 bh Wall Speaker 6W (Gate 10)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z2.1.3 (Emergency)</span>
+                      <span className="text-rose-100">20× Ceiling 6W • 19× Column 15W (Office, Tenant, Mushala)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* JBSS 2.4 Card */}
+                <div className="p-3 rounded-xl bg-slate-950 border border-emerald-500/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-extrabold text-emerald-300">
+                        JBSS 2.4 (JBSS-2.4.Z4.2) — Lantai 2 Barat (Keberangkatan Domestik)
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400">
+                        Total: 53 Ceiling 6W (318W) • 20 Column 15W (300W) • 5 Wall 6W • 13 AVC • 6 Mic
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleFocusEksistingPaNode('jbss_2_4')}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer shrink-0"
+                    >
+                      Fokus 3D JBSS 2.4
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-[10px] font-mono">
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-emerald-300 font-bold">JBSS Z4.1.1 (Public Domestik)</span>
+                      <span className="text-slate-200">5 bh Wall Speaker 6W (38x Skematik • Koridor Domestik)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-emerald-300 font-bold">JBSS Z4.1.2 (Public Domestik)</span>
+                      <span className="text-slate-200">29 bh Ceiling Speaker 6W (174W • Gate 09)</span>
+                    </div>
+                    <div className="p-2 rounded bg-slate-900 border border-slate-800 flex justify-between">
+                      <span className="text-emerald-300 font-bold">JBSS Z4.1.3 (Public Domestik)</span>
+                      <span className="text-slate-200">40 bh Ceiling Speaker 6W (240W • Gate 07–08)</span>
+                    </div>
+                    <div className="p-2 rounded bg-rose-950/40 border border-rose-500/40 flex justify-between">
+                      <span className="text-rose-300 font-bold">JBSS Z4.1.4 (Emergency)</span>
+                      <span className="text-rose-100">5 Ceiling 6W • 20 Column 15W (Boarding Lounge & Koridor)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {paBlockTab === 'abd_sheets' && (
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: '0001c', label: '0001C-00: Diagram Skematik PA' },
+                    { id: '0002', label: '0002-00: Detail Rack 42U' },
+                    { id: '0102', label: '0102-00: Instalasi PA Lt. 1' },
+                    { id: '0103', label: '0103-00: Instalasi PA Lt. 2' },
+                    { id: 'jbss_lt1', label: 'Kabel Distribusi JBSS Lt. 1' },
+                    { id: 'jbss_lt2', label: 'Kabel Distribusi JBSS Lt. 2' },
+                  ].map((sh) => (
+                    <button
+                      key={sh.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedAbdSheet(
+                          sh.id as '0001c' | '0002' | '0102' | '0103' | 'jbss_lt1' | 'jbss_lt2'
+                        )
+                      }
+                      className={`p-1.5 rounded-lg border text-left text-[10px] font-bold cursor-pointer ${
+                        selectedAbdSheet === sh.id
+                          ? 'bg-amber-500/25 border-amber-400 text-amber-200'
+                          : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-amber-500/40'
+                      }`}
+                    >
+                      {sh.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="rounded-xl overflow-hidden border border-slate-700 bg-white p-1">
+                  <img
+                    src={
+                      selectedAbdSheet === '0001c'
+                        ? '/assets/aistudio/abd_eksisting/diagram_skematik_pa_te.png'
+                        : selectedAbdSheet === '0002'
+                        ? '/assets/aistudio/abd_eksisting/detail_rack_amplifier_te.png'
+                        : selectedAbdSheet === '0102'
+                        ? '/assets/aistudio/abd_eksisting/instalasi_pa_lt1_te.png'
+                        : selectedAbdSheet === '0103'
+                        ? '/assets/aistudio/abd_eksisting/instalasi_pa_lt2_te.png'
+                        : selectedAbdSheet === 'jbss_lt1'
+                        ? '/assets/aistudio/abd_eksisting/kabel_distribusi_jbss_lt1_te.png'
+                        : '/assets/aistudio/abd_eksisting/kabel_distribusi_jbss_lt2_te.png'
+                    }
+                    alt="As-Built Drawing Public Address Terminal Eksisting"
+                    className="w-full h-auto max-h-64 object-contain mx-auto rotate-180"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <span className="font-mono text-slate-400">
+                    Dokumen: 097/ABD-MEP/F.DBG-BSH/V/2025
+                  </span>
+                  <a
+                    href={
+                      selectedAbdSheet === '0001c'
+                        ? '/assets/aistudio/abd_eksisting/diagram_skematik_pa_te.png'
+                        : selectedAbdSheet === '0002'
+                        ? '/assets/aistudio/abd_eksisting/detail_rack_amplifier_te.png'
+                        : selectedAbdSheet === '0102'
+                        ? '/assets/aistudio/abd_eksisting/instalasi_pa_lt1_te.png'
+                        : selectedAbdSheet === '0103'
+                        ? '/assets/aistudio/abd_eksisting/instalasi_pa_lt2_te.png'
+                        : selectedAbdSheet === 'jbss_lt1'
+                        ? '/assets/aistudio/abd_eksisting/kabel_distribusi_jbss_lt1_te.png'
+                        : '/assets/aistudio/abd_eksisting/kabel_distribusi_jbss_lt2_te.png'
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold"
+                  >
+                    Buka Gambar Penuh
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Interactive Detail Panel for Green-Marked Room 1 (Tampilan Depan, Belakang, Kanan, Kiri) & Rooms 1–6 */}
       {showEksistingRoomPanel && (
@@ -1066,6 +1709,16 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
               Lantai 2
             </button>
             <button
+              onClick={() => setPipTab('lantai3')}
+              className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
+                pipTab === 'lantai3'
+                  ? 'bg-sky-500/20 text-sky-300 border-b-2 border-sky-400'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Lt. 3 Utama
+            </button>
+            <button
               onClick={() => setPipTab('parkir')}
               className={`flex-1 py-1.5 text-center transition-colors cursor-pointer ${
                 pipTab === 'parkir'
@@ -1095,13 +1748,39 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                   ? '/assets/aistudio/lantai1_eksisting_room_ref.png'
                   : pipTab === 'lantai2'
                   ? '/assets/aistudio/Tanpa_judul__920_x_197_mm___1__606ea6fe.png'
+                  : pipTab === 'lantai3'
+                  ? '/assets/aistudio/lt3_terminal_utama_ref.jpg'
                   : pipTab === 'parkir'
                   ? '/assets/aistudio/Terminal_Selatan__1__b9bc7e87.png'
                   : '/assets/aistudio/1_47a27264.png'
               }
               alt="Referensi Bandara Sultan Hasanuddin Makassar"
-              className="w-full h-auto max-h-72 rounded-lg border border-slate-800 object-contain bg-slate-900"
+              className="w-full h-auto max-h-56 rounded-lg border border-slate-800 object-contain bg-slate-900"
             />
+            {pipTab === 'speaker' && (
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
+                <div className="rounded-lg border border-slate-800 bg-slate-900/90 p-1 text-center">
+                  <img
+                    src="/assets/aistudio/speaker_tiang_depan.jpg"
+                    alt="Bosch Horn Speaker Tampak Depan"
+                    className="w-full h-24 object-contain rounded bg-white"
+                  />
+                  <div className="mt-1 text-[9px] font-mono text-amber-300 font-semibold">
+                    Bosch Horn — Tampak Depan
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-900/90 p-1 text-center">
+                  <img
+                    src="/assets/aistudio/speaker_tiang_samping.jpg"
+                    alt="Bosch Horn Speaker Tampak Samping"
+                    className="w-full h-24 object-contain rounded bg-white"
+                  />
+                  <div className="mt-1 text-[9px] font-mono text-amber-300 font-semibold">
+                    Bosch Horn — Tampak Samping
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] font-mono text-slate-300">
               <div className="px-2 py-1 rounded bg-slate-900 border border-slate-800">
                 <span className="text-sky-400 font-bold">●</span> Ceiling ({ceilingCount})
@@ -1137,19 +1816,28 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         </div>
       </div>
 
-      {/* Left Sidebar Drawer for 3D Pixar Speaker Categories & Status */}
+      {/* Left Sidebar Drawer for 3D Pixar Speaker Categories & Status (Skeuomorphism + Violet Sans) */}
       <div
-        className={`absolute top-16 bottom-28 left-0 z-20 hidden md:flex items-start transition-transform duration-300 ease-in-out select-none ${
+        style={{
+          fontFamily: "'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif",
+        }}
+        className={`font-violet-sans absolute top-16 bottom-28 left-0 z-20 hidden md:flex items-start transition-transform duration-300 ease-in-out select-none ${
           isSpeakerLegendMinimized ? '-translate-x-72' : 'translate-x-0'
         }`}
       >
-        {/* Drawer Sidebar Panel */}
-        <aside className="w-72 h-full max-h-[420px] flex flex-col justify-between gap-2.5 p-3.5 rounded-r-2xl bg-slate-900/95 border-y border-r border-slate-800 shadow-2xl text-[11px] font-mono text-slate-300 backdrop-blur-md overflow-y-auto">
+        {/* Drawer Sidebar Panel (Skeuomorphic Brushed Hardware Chassis) */}
+        <aside
+          style={{
+            fontFamily: "'Violet Sans', 'Space Grotesk', 'Plus Jakarta Sans', sans-serif",
+          }}
+          className="font-violet-sans skeuo-chassis w-72 h-full max-h-[445px] flex flex-col justify-between gap-2.5 p-3.5 rounded-r-2xl border-l-0 text-[11px] text-slate-900 overflow-y-auto"
+        >
           <div className="flex flex-col gap-2.5">
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                <Volume2 className="w-3.5 h-3.5 shrink-0" />
+            {/* Drawer Header (Recessed LCD Display & Tactile Controls) */}
+            <div className="flex items-center justify-between border-b border-slate-400/90 pb-2">
+              <div className="skeuo-lcd flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-sky-300">
+                <span className="w-2 h-2 rounded-full bg-sky-400 border border-sky-900 shadow-[0_0_6px_#38bdf8,inset_0_1px_1px_#fff]" />
+                <Volume2 className="w-3.5 h-3.5 text-sky-400 shrink-0 stroke-[2.2]" />
                 <span>Kategori Speaker 3D Pixar</span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -1157,7 +1845,7 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                   <button
                     type="button"
                     onClick={() => handleSelectSpeakerCategory('all')}
-                    className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                    className="skeuo-btn px-2 py-0.5 text-[10px] font-bold text-slate-800 cursor-pointer"
                   >
                     Semua ({speakers.length})
                   </button>
@@ -1165,101 +1853,128 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSpeakerLegendMinimized(true)}
-                  className="p-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className="skeuo-btn p-1.5 text-slate-800 cursor-pointer"
                   title="Tutup Left Sidebar Drawer"
                 >
-                  <PanelLeftClose className="w-3.5 h-3.5" />
+                  <PanelLeftClose className="w-3.5 h-3.5 stroke-[2.2]" />
                 </button>
               </div>
             </div>
 
-            {/* Interactive Category Buttons */}
-            <div className="flex flex-col gap-2">
+            {/* Interactive Tactile Category Hardware Buttons */}
+            <div className="skeuo-well p-2 rounded-xl flex flex-col gap-2">
               <button
                 onClick={() => handleSelectSpeakerCategory('ceiling')}
-                className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`text-left p-2.5 transition-all cursor-pointer ${
                   speakerCategoryFilter === 'ceiling'
-                    ? 'bg-sky-500/20 border-sky-400 text-white shadow-sm'
-                    : 'bg-slate-950/70 border-slate-800/90 hover:border-sky-500/40 text-slate-300'
+                    ? 'skeuo-btn-sky skeuo-btn-pressed'
+                    : 'skeuo-card hover:brightness-[1.02]'
                 }`}
               >
-                <div className="flex items-center justify-between font-bold text-sky-300">
-                  <span>◎ Ceiling Speaker</span>
-                  <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-[10px]">
+                <div className="flex items-center justify-between font-extrabold text-slate-900">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full border ${
+                        speakerCategoryFilter === 'ceiling'
+                          ? 'bg-sky-300 border-sky-900 shadow-[0_0_8px_#38bdf8,inset_0_1px_1px_#fff]'
+                          : 'bg-sky-500 border-sky-900 shadow-[0_0_4px_#0ea5e9]'
+                      }`}
+                    />
+                    <span>Ceiling Speaker</span>
+                  </span>
+                  <span className="skeuo-lcd px-2 py-0.5 text-[10px] font-bold text-sky-300">
                     {ceilingCount} Unit
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-sans leading-tight mt-1">
+                <div className="text-[10px] text-slate-700 font-semibold leading-tight mt-1.5">
                   Plafon terminal (Ruang Tunggu, Check-in, Bagasi)
                 </div>
               </button>
 
               <button
                 onClick={() => handleSelectSpeakerCategory('column')}
-                className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`text-left p-2.5 transition-all cursor-pointer ${
                   speakerCategoryFilter === 'column'
-                    ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-sm'
-                    : 'bg-slate-950/70 border-slate-800/90 hover:border-emerald-500/40 text-slate-300'
+                    ? 'skeuo-btn-emerald skeuo-btn-pressed'
+                    : 'skeuo-card hover:brightness-[1.02]'
                 }`}
               >
-                <div className="flex items-center justify-between font-bold text-emerald-300">
-                  <span>▮ Column Speaker</span>
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[10px]">
+                <div className="flex items-center justify-between font-extrabold text-slate-900">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full border ${
+                        speakerCategoryFilter === 'column'
+                          ? 'bg-emerald-300 border-emerald-900 shadow-[0_0_8px_#34d399,inset_0_1px_1px_#fff]'
+                          : 'bg-emerald-500 border-emerald-900 shadow-[0_0_4px_#10b981]'
+                      }`}
+                    />
+                    <span>Column Speaker</span>
+                  </span>
+                  <span className="skeuo-lcd px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                     {columnCount} Unit
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-sans leading-tight mt-1">
+                <div className="text-[10px] text-slate-700 font-semibold leading-tight mt-1.5">
                   Dinding pilar & koridor (Jangkauan horizontal jauh)
                 </div>
               </button>
 
               <button
                 onClick={() => handleSelectSpeakerCategory('horn')}
-                className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                className={`text-left p-2.5 transition-all cursor-pointer ${
                   speakerCategoryFilter === 'horn'
-                    ? 'bg-amber-500/20 border-amber-400 text-white shadow-sm'
-                    : 'bg-slate-950/70 border-slate-800/90 hover:border-amber-500/40 text-slate-300'
+                    ? 'skeuo-btn-amber skeuo-btn-pressed'
+                    : 'skeuo-card hover:brightness-[1.02]'
                 }`}
               >
-                <div className="flex items-center justify-between font-bold text-amber-300">
-                  <span>◁ Horn Speaker</span>
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-[10px]">
+                <div className="flex items-center justify-between font-extrabold text-slate-900">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full border ${
+                        speakerCategoryFilter === 'horn'
+                          ? 'bg-amber-300 border-amber-900 shadow-[0_0_8px_#facc15,inset_0_1px_1px_#fff]'
+                          : 'bg-amber-500 border-amber-900 shadow-[0_0_4px_#f59e0b]'
+                      }`}
+                    />
+                    <span>Horn Speaker</span>
+                  </span>
+                  <span className="skeuo-lcd px-2 py-0.5 text-[10px] font-bold text-amber-300">
                     {hornCount} Unit
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-sans leading-tight mt-1">
-                  Area bising & terbuka luar ruangan (Apron / Drop-off)
+                <div className="text-[10px] text-slate-700 font-semibold leading-tight mt-1.5">
+                  Tiang Gedung Parkir (Basement, Lt. 1–3), Tiang Garbarata & Apron
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Status Indicator Footer */}
-          <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-1.5 text-[10px]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          {/* Recessed Digital LCD Status Indicator Footer */}
+          <div className="skeuo-lcd p-2.5 grid grid-cols-2 gap-1.5 text-[10px] font-bold">
+            <div className="flex items-center gap-1.5 text-emerald-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-emerald-900 shadow-[0_0_6px_#10b981,inset_0_1px_1px_#fff]" />
               <span>Online ({speakers.length})</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+            <div className="flex items-center gap-1.5 text-sky-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 border border-sky-900 shadow-[0_0_6px_#38bdf8] animate-pulse" />
               <span>Menyiarkan</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <div className="flex items-center gap-1.5 text-amber-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-900 shadow-[0_0_6px_#f59e0b,inset_0_1px_1px_#fff]" />
               <span>Pilot Fault</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
+            <div className="flex items-center gap-1.5 text-rose-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 border border-rose-950 shadow-[0_0_6px_#f43f5e,inset_0_1px_1px_#fff]" />
               <span>Darurat EN54</span>
             </div>
           </div>
         </aside>
 
-        {/* Protruding Left-Edge Drawer Toggle Handle Tab */}
+        {/* Protruding Left-Edge Skeuomorphic Drawer Toggle Handle Tab */}
         <button
           type="button"
           onClick={() => setIsSpeakerLegendMinimized((prev) => !prev)}
-          className="mt-3 flex items-center gap-1.5 px-2.5 py-2.5 rounded-r-xl bg-slate-900/95 hover:bg-slate-800 border-y border-r border-slate-700 text-sky-400 hover:text-sky-300 shadow-xl backdrop-blur-md transition-colors cursor-pointer"
+          className="skeuo-btn mt-3 flex items-center gap-1.5 px-2.5 py-2.5 !rounded-l-none !rounded-r-xl border-l-0 text-slate-900 font-extrabold cursor-pointer"
           title={
             isSpeakerLegendMinimized
               ? 'Buka Left Sidebar Kategori Speaker'
@@ -1268,14 +1983,15 @@ export const DigitalTwinCanvas: React.FC<DigitalTwinCanvasProps> = ({
         >
           {isSpeakerLegendMinimized ? (
             <>
-              <PanelLeftOpen className="w-4 h-4 shrink-0" />
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-200 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-sky-500 border border-sky-900 shadow-[0_0_6px_#0ea5e9]" />
+              <PanelLeftOpen className="w-4 h-4 shrink-0 text-slate-800 stroke-[2.2]" />
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-900 whitespace-nowrap">
                 Speaker ({speakers.length})
               </span>
-              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-slate-800 stroke-[2.2]" />
             </>
           ) : (
-            <ChevronLeft className="w-4 h-4 shrink-0" />
+            <ChevronLeft className="w-4 h-4 shrink-0 text-slate-800 stroke-[2.2]" />
           )}
         </button>
       </div>

@@ -68,8 +68,8 @@ export async function saveTrackToDB(
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('Could not save custom audio to IndexedDB:', err);
+  } catch {
+    // Ignore IndexedDB write error
   }
 }
 
@@ -84,8 +84,7 @@ export async function loadAllTracksFromDB(): Promise<StoredTrackRecord[]> {
       req.onsuccess = () => resolve(req.result || []);
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('Could not load custom audio from IndexedDB:', err);
+  } catch {
     return [];
   }
 }
@@ -101,7 +100,7 @@ export async function deleteTrackFromDB(type: AudioTrackType): Promise<void> {
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
-  } catch (err) {
-    console.warn('Could not delete audio track from IndexedDB:', err);
+  } catch {
+    // Ignore IndexedDB delete error
   }
 }

@@ -95,8 +95,7 @@ export const AudioUploadManagerModal: React.FC<AudioUploadManagerModalProps> = (
       });
 
       onShowToast(`✅ Berhasil mengupload audio "${meta.name}" (${meta.sizeFormatted}) untuk ${tracks[type].title}.`);
-    } catch (err) {
-      console.error('Failed to load audio file:', err);
+    } catch {
       onShowToast(`❌ Gagal membaca berkas audio: Format tidak didukung atau berkas rusak.`);
     } finally {
       setIsUploading(null);

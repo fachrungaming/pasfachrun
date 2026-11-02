@@ -23,6 +23,7 @@ export type CameraPresetType =
   | 'lantai1_eksisting'
   | 'lantai1_eksisting_ruangan'
   | 'lantai2'
+  | 'lantai3'
   | 'utama'
   | 'curbside'
   | 'eksisting'
@@ -101,11 +102,16 @@ export class AirportSceneManager {
   private upperRoofMeshes: THREE.Object3D[] = [];
   private lantai1Meshes: THREE.Object3D[] = [];
   private lantai2Meshes: THREE.Object3D[] = [];
+  private lantai3Meshes: THREE.Object3D[] = [];
   private isLantai1Cutaway: boolean = false;
   private isLantai2Cutaway: boolean = false;
+  private isLantai3Cutaway: boolean = false;
   private activeCategoryFilter: SpeakerCategory | 'all' = 'all';
   private speakerBadgeTextures: Map<SpeakerCategory, THREE.CanvasTexture> = new Map();
+  private boschCapTexture: THREE.CanvasTexture | null = null;
   private eksistingRedOutlineGroup: THREE.Group | null = null;
+  private r1CeilingGroup: THREE.Group | null = null;
+  private r1TopLabelsGroup: THREE.Group | null = null;
   private eksistingRoomHighlightMeshes: Map<number, THREE.Mesh[]> = new Map();
   private highlightedEksistingRoomCode: number | null = null;
   private eksistingHotspotWorldPos = new THREE.Vector3(6.4, 3.25, 15.1);
@@ -498,11 +504,11 @@ export class AirportSceneManager {
     canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
 
-    ctx.fillStyle = '#e7e5e0';
+    ctx.fillStyle = '#C9B79C';
     ctx.fillRect(0, 0, 256, 256);
 
-    // Fine terrazzo mineral speckles
-    const speckleColors = ['#c8c4bc', '#b6b1a7', '#f5f3ef', '#9ca3af', '#d6d2c9'];
+    // Fine terrazzo mineral speckles on #C9B79C tile base
+    const speckleColors = ['#bfae93', '#d3c2a8', '#b5a388', '#d8c8af', '#c3b196'];
     for (let i = 0; i < 900; i++) {
       ctx.fillStyle = speckleColors[i % speckleColors.length];
       const sx = (i * 73) % 256;
@@ -512,7 +518,7 @@ export class AirportSceneManager {
     }
 
     // Subtle square architectural tile joints
-    ctx.strokeStyle = 'rgba(180, 175, 166, 0.38)';
+    ctx.strokeStyle = 'rgba(148, 131, 105, 0.45)';
     ctx.lineWidth = 1.5;
     for (let g = 0; g <= 256; g += 32) {
       ctx.beginPath();
@@ -531,6 +537,65 @@ export class AirportSceneManager {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(16, 8);
+    return tex;
+  }
+
+  /**
+   * Generates a polished reflective silver-taupe porcelain floor texture with warm circular
+   * downlight/spotlight reflection pools matching Mockup Lt. 3 Terminal Utama reference:
+   * https://i.ibb.co.com/twXSgvBK/Gemini-Generated-Image-yuv3ynyuv3ynyuv3.jpg
+   */
+  private createLt3MainHallFloorTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // Smooth polished warm grey-taupe porcelain base gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 1024, 512);
+    bgGrad.addColorStop(0, '#bab5ae');
+    bgGrad.addColorStop(0.5, '#c6c2bc');
+    bgGrad.addColorStop(1, '#b6b1aa');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Fine large-format porcelain tile grid lines
+    ctx.strokeStyle = 'rgba(138, 132, 124, 0.28)';
+    ctx.lineWidth = 1.2;
+    for (let x = 0; x <= 1024; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= 512; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(1024, y);
+      ctx.stroke();
+    }
+
+    // Soft warm-white ceiling spotlight reflection pools across the glossy floor (matching reference photo)
+    const spotCols = [150, 290, 395, 512, 625, 735, 875];
+    const spotRows = [95, 195, 295, 395];
+    spotCols.forEach((sx, cIdx) => {
+      spotRows.forEach((sy, rIdx) => {
+        const jx = sx + ((rIdx % 2 === 0 ? 1 : -1) * (cIdx % 3) * 8);
+        const jy = sy + ((cIdx % 2 === 0 ? -1 : 1) * 6);
+        const rad = 46 + ((cIdx + rIdx) % 3) * 10;
+        const grad = ctx.createRadialGradient(jx, jy, 2, jx, jy, rad);
+        grad.addColorStop(0, 'rgba(255, 253, 248, 0.78)');
+        grad.addColorStop(0.35, 'rgba(248, 244, 236, 0.36)');
+        grad.addColorStop(1, 'rgba(198, 194, 188, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(jx, jy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
     return tex;
   }
 
@@ -712,6 +777,16 @@ export class AirportSceneManager {
       roughness: 0.38,
       metalness: 0.18,
     });
+    const eksWallMat = new THREE.MeshStandardMaterial({
+      color: 0xf5ebd0,
+      roughness: 0.34,
+      metalness: 0.06,
+    });
+    const eksWallCapMat = new THREE.MeshStandardMaterial({
+      color: 0xe6dac0,
+      roughness: 0.38,
+      metalness: 0.14,
+    });
     const greenNodeMat = new THREE.MeshStandardMaterial({
       color: 0x22c55e,
       emissive: 0x16a34a,
@@ -805,16 +880,23 @@ export class AirportSceneManager {
       h: number = 2.35,
       rotY: number = 0
     ) => {
+      const isEksistingL1 = cz >= -10.8 && cx >= -16.8;
       const wallGroup = new THREE.Group();
       wallGroup.position.set(cx, 0.62 + h / 2, cz);
       wallGroup.rotation.y = rotY;
 
-      const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), partitionWallMat);
+      const wallMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        isEksistingL1 ? eksWallMat : partitionWallMat
+      );
       wallMesh.castShadow = true;
       wallMesh.receiveShadow = true;
       wallGroup.add(wallMesh);
 
-      const capMesh = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.1, d + 0.05), wallCapMat);
+      const capMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.05, 0.1, d + 0.05),
+        isEksistingL1 ? eksWallCapMat : wallCapMat
+      );
       capMesh.position.y = h / 2 + 0.05;
       wallGroup.add(capMesh);
 
@@ -822,7 +904,7 @@ export class AirportSceneManager {
       this.lantai1Meshes.push(wallGroup);
     };
 
-    // Helper to add a 3D white square structural column on Lantai 1 (matching square pillars in image_6015f581.png & PDF)
+    // Helper to add a 3D square structural column on Lantai 1 (matching square pillars in image_6015f581.png & PDF)
     const addL1SquareColumn = (
       parent: THREE.Group,
       x: number,
@@ -830,7 +912,11 @@ export class AirportSceneManager {
       size: number = 0.56,
       h: number = 2.55
     ) => {
-      const col = new THREE.Mesh(new THREE.BoxGeometry(size, h, size), partitionWallMat);
+      const isEksistingL1 = z >= -10.8 && x >= -16.8;
+      const col = new THREE.Mesh(
+        new THREE.BoxGeometry(size, h, size),
+        isEksistingL1 ? eksWallMat : partitionWallMat
+      );
       col.position.set(x, 0.62 + h / 2, z);
       col.castShadow = true;
       col.receiveShadow = true;
@@ -1192,18 +1278,18 @@ export class AirportSceneManager {
       metalness: 0.1,
     });
     const eksSmoothGreyFloorMat = new THREE.MeshStandardMaterial({
-      color: 0xcdd0d5,
-      roughness: 0.56,
+      color: 0xc9b79c,
+      roughness: 0.46,
       metalness: 0.08,
     });
     const eksSunkenAlleyMat = new THREE.MeshStandardMaterial({
-      color: 0x8b8e94,
-      roughness: 0.76,
+      color: 0xb5a388,
+      roughness: 0.68,
       metalness: 0.08,
     });
     const eksTerrazzoFloorMat = new THREE.MeshStandardMaterial({
       map: this.createEksistingTerrazzoTexture(),
-      roughness: 0.42,
+      roughness: 0.38,
       metalness: 0.06,
     });
 
@@ -1240,11 +1326,11 @@ export class AirportSceneManager {
       const addLocalWall = (lx: number, lz: number, lw: number, ld: number) => {
         const wg = new THREE.Group();
         wg.position.set(lx, 0.62 + wallH / 2, lz);
-        const wm = new THREE.Mesh(new THREE.BoxGeometry(lw, wallH, ld), partitionWallMat);
+        const wm = new THREE.Mesh(new THREE.BoxGeometry(lw, wallH, ld), eksWallMat);
         wm.castShadow = true;
         wm.receiveShadow = true;
         wg.add(wm);
-        const cm = new THREE.Mesh(new THREE.BoxGeometry(lw + 0.05, 0.1, ld + 0.05), wallCapMat);
+        const cm = new THREE.Mesh(new THREE.BoxGeometry(lw + 0.05, 0.1, ld + 0.05), eksWallCapMat);
         cm.position.y = wallH / 2 + 0.05;
         wg.add(cm);
         rGroup.add(wg);
@@ -1445,17 +1531,17 @@ export class AirportSceneManager {
 
     // Materials for detailed Data Center, Control Room, Storage, Standby & Restroom interiors
     const dcRaisedFloorMat = new THREE.MeshStandardMaterial({
-      color: 0xb8bec6,
-      roughness: 0.45,
-      metalness: 0.14,
+      color: 0xc9b79c,
+      roughness: 0.42,
+      metalness: 0.10,
     });
     const dcControlFloorMat = new THREE.MeshStandardMaterial({
-      color: 0xd6d3cd,
-      roughness: 0.48,
+      color: 0xc9b79c,
+      roughness: 0.40,
       metalness: 0.08,
     });
     const dcWhiteFloorMat = new THREE.MeshStandardMaterial({
-      color: 0xf4f5f7,
+      color: 0xc9b79c,
       roughness: 0.35,
       metalness: 0.06,
     });
@@ -1496,11 +1582,11 @@ export class AirportSceneManager {
     const addDcWall = (cx: number, cz: number, w: number, d: number, h: number = dcWallH) => {
       const wg = new THREE.Group();
       wg.position.set(cx, 0.62 + h / 2, cz);
-      const wm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), partitionWallMat);
+      const wm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), eksWallMat);
       wm.castShadow = true;
       wm.receiveShadow = true;
       wg.add(wm);
-      const cm = new THREE.Mesh(new THREE.BoxGeometry(w + 0.04, 0.09, d + 0.04), wallCapMat);
+      const cm = new THREE.Mesh(new THREE.BoxGeometry(w + 0.04, 0.09, d + 0.04), eksWallCapMat);
       cm.position.y = h / 2 + 0.045;
       wg.add(cm);
       dcComplexGroup.add(wg);
@@ -1717,124 +1803,350 @@ export class AirportSceneManager {
 
     // =========================================================================
     // --- ROOM 1 (GREEN-MARKED ROOM): R. STANDBY (X: +7.25 to +8.70, Z: +12.0 to +13.6) ---
-    // Built in full 3D matching the 5 reference images:
-    //  - Denah Hijau (Tanpa_judul__920_x_197_mm___7__94ceae72.png):
-    //      depan = +X wall (X = 8.70), belakang = -X wall (X = 7.25),
-    //      kanan = +Z wall (Z = 13.60), Kiri = -Z wall (Z = 12.00)
-    //  - Tampilan Depan (Tampilan_Depan_a8f44f77.jpeg)
-    //  - Tampilan Belakang (Tampilan_Belakang_2314ea8a.jpeg)
-    //  - Tampilan Kanan (Tampilan_Kanan_7e5f03f3.jpeg)
-    //  - Tampilan Kiri (Tampilan_kiri_634fbe9b.jpeg)
+    // Hyper-realistic 3D interior matching the 4 reference photographs:
+    //  - Tampilan Depan (Tampilan-Depan.jpg): +X wall (X = 8.70)
+    //  - Tampilan Belakang (Tampilan-Belakang.jpg): -X wall & open corridor (X = 7.25 -> 5.80)
+    //  - Tampilan Kanan (Tampilan-Kanan.jpg): +Z wall & open doorway to Room 4 (Z = 13.60)
+    //  - Tampilan Kiri (Tampilan-kiri.jpg): -Z wall (Z = 12.00)
     // =========================================================================
+
+    // 0A. Procedural Ceramic Tile Texture (30x30cm #C9B79C tiles with realistic grout & subtle sheen)
+    const r1TileCanvas = document.createElement('canvas');
+    r1TileCanvas.width = 512;
+    r1TileCanvas.height = 512;
+    const r1TileCtx = r1TileCanvas.getContext('2d')!;
+    r1TileCtx.fillStyle = '#C9B79C';
+    r1TileCtx.fillRect(0, 0, 512, 512);
+    const tileStep = 64;
+    for (let ty = 0; ty < 512; ty += tileStep) {
+      for (let tx = 0; tx < 512; tx += tileStep) {
+        const shade = ((tx / tileStep + ty / tileStep) % 2 === 0) ? '#C9B79C' : '#c3b196';
+        r1TileCtx.fillStyle = shade;
+        r1TileCtx.fillRect(tx + 2, ty + 2, tileStep - 3, tileStep - 3);
+      }
+    }
+    r1TileCtx.strokeStyle = '#9c8b70';
+    r1TileCtx.lineWidth = 3;
+    for (let i = 0; i <= 512; i += tileStep) {
+      r1TileCtx.beginPath();
+      r1TileCtx.moveTo(i, 0);
+      r1TileCtx.lineTo(i, 512);
+      r1TileCtx.stroke();
+      r1TileCtx.beginPath();
+      r1TileCtx.moveTo(0, i);
+      r1TileCtx.lineTo(512, i);
+      r1TileCtx.stroke();
+    }
+    const r1TileTex = new THREE.CanvasTexture(r1TileCanvas);
+    r1TileTex.colorSpace = THREE.SRGBColorSpace;
+    r1TileTex.wrapS = THREE.RepeatWrapping;
+    r1TileTex.wrapT = THREE.RepeatWrapping;
+    r1TileTex.repeat.set(1.5, 1.6);
+
     const r1CreamTileMat = new THREE.MeshStandardMaterial({
-      color: 0xefe7d6,
-      roughness: 0.26,
+      map: r1TileTex,
+      roughness: 0.22,
       metalness: 0.08,
     });
-    const r1TileGroutMat = new THREE.MeshBasicMaterial({
-      color: 0xcbbfa8,
+    const r1BaseboardMat = new THREE.MeshStandardMaterial({
+      color: 0xc9b79c,
+      roughness: 0.38,
+      metalness: 0.05,
     });
     addDcFloor(7.98, 12.8, 1.46, 1.6, r1CreamTileMat, 1);
-
-    // Subtle ceramic floor tile grout grid inside Room 1 & hallway
-    for (let tx = 7.45; tx <= 8.55; tx += 0.28) {
-      const gLine = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.004, 1.56), r1TileGroutMat);
-      gLine.position.set(tx, 0.682, 12.8);
-      dcComplexGroup.add(gLine);
-    }
-    for (let tz = 12.22; tz <= 13.45; tz += 0.28) {
-      const gLine = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.004, 0.008), r1TileGroutMat);
-      gLine.position.set(7.98, 0.682, tz);
-      dcComplexGroup.add(gLine);
-    }
 
     // Sisi Kiri (-Z wall at Z = 12.0) & Sisi Belakang (-X partial partition wall at X = 7.25, Z: 12.0..12.96)
     addDcWall(7.98, 12.0, 1.46, 0.16); // Sisi Kiri (-Z wall)
     addDcWall(7.25, 12.48, 0.15, 0.96); // Sisi Belakang solid right half (-X wall, leaving Z: 12.96..13.56 open to hallway)
 
-    // Bright Green 3D Outline Frame around Room 1 matching Tanpa_judul__920_x_197_mm___7__94ceae72.png
-    const r1GreenOutlineMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    const r1GreenTopN = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.045, 0.055), r1GreenOutlineMat);
-    r1GreenTopN.position.set(7.98, 2.26, 13.60);
-    dcComplexGroup.add(r1GreenTopN);
-    const r1GreenTopS = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.045, 0.055), r1GreenOutlineMat);
-    r1GreenTopS.position.set(7.98, 2.26, 12.00);
-    dcComplexGroup.add(r1GreenTopS);
-    const r1GreenTopE = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 1.65), r1GreenOutlineMat);
-    r1GreenTopE.position.set(8.70, 2.26, 12.80);
-    dcComplexGroup.add(r1GreenTopE);
-    const r1GreenTopW = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.045, 1.65), r1GreenOutlineMat);
-    r1GreenTopW.position.set(7.25, 2.26, 12.80);
-    dcComplexGroup.add(r1GreenTopW);
-
-    // Helper to add 3D directional text labels ("depan", "belakang", "kanan", "Kiri") around the green box
-    const addRoom1SideLabel = (text: string, lx: number, lz: number, rotZ: number = Math.PI) => {
-      const c = document.createElement('canvas');
-      c.width = 256;
-      c.height = 96;
-      const ctx = c.getContext('2d')!;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-      ctx.strokeStyle = '#16a34a';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.roundRect(8, 12, 240, 72, 16);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = '#09090b';
-      ctx.font = '900 44px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, 128, 50);
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      const mat = new THREE.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false,
-      });
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.21), mat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.rotation.z = rotZ;
-      mesh.position.set(lx, 2.34, lz);
-      dcComplexGroup.add(mesh);
+    // Cream Ceramic Wall Baseboard Skirting (Plin Keramik) around Room 1 walls
+    const addR1Skirting = (sx: number, sz: number, sw: number, sd: number) => {
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(sw, 0.065, sd), r1BaseboardMat);
+      skirt.position.set(sx, 0.68 + 0.032, sz);
+      dcComplexGroup.add(skirt);
     };
-    addRoom1SideLabel('depan', 8.92, 12.80, Math.PI);
-    addRoom1SideLabel('belakang', 7.02, 12.80, Math.PI);
-    addRoom1SideLabel('kanan', 7.98, 13.78, Math.PI);
-    addRoom1SideLabel('Kiri', 7.98, 11.82, Math.PI);
+    addR1Skirting(8.61, 12.80, 0.02, 1.56); // +X wall skirting
+    addR1Skirting(7.98, 12.09, 1.42, 0.02); // -Z wall skirting
+    addR1Skirting(7.33, 12.48, 0.02, 0.92); // -X partition wall skirting
+    addR1Skirting(7.66, 13.51, 0.78, 0.02); // +Z right wall skirting
 
-    // Shared Materials for Room 1 Furniture & Appliances
-    const r1BrownWoodMat = new THREE.MeshStandardMaterial({ color: 0x7c4a24, roughness: 0.55, metalness: 0.08 });
-    const r1DarkSlattedMat = new THREE.MeshStandardMaterial({ color: 0x262930, roughness: 0.45, metalness: 0.22 });
-    const r1BlueChairMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.6, metalness: 0.05 });
+    // Dedicated Indoor Lighting inside Room 1 & Hallway for realistic reflections and soft shadows
+    const r1IndoorLight = new THREE.PointLight(0xfffbeb, 1.4, 3.8);
+    r1IndoorLight.position.set(7.98, 2.08, 12.80);
+    dcComplexGroup.add(r1IndoorLight);
+
+    const r1HallwayLight = new THREE.PointLight(0xffe4b5, 1.1, 3.2);
+    r1HallwayLight.position.set(6.45, 2.05, 13.28);
+    dcComplexGroup.add(r1HallwayLight);
+
+    // Top-Down Group for Room 1 (Green outline lines and depan/belakang/kanan/kiri labels removed)
+    const r1TopLabelsGroup = new THREE.Group();
+    r1TopLabelsGroup.visible = false;
+    dcComplexGroup.add(r1TopLabelsGroup);
+    this.r1TopLabelsGroup = r1TopLabelsGroup;
+
+    // -------------------------------------------------------------------------
+    // 0B. REALISTIC ACOUSTIC T-BAR CEILING GRID, FLUORESCENT TROFFERS, AC DIFFUSERS,
+    //     LINEAR VENT, SMOKE DETECTOR & OPEN PLENUM SLOT (Visible in Indoor 3D Views)
+    // -------------------------------------------------------------------------
+    const r1CeilingGroup = new THREE.Group();
+    r1CeilingGroup.visible = false; // Automatically enabled when viewing depan, belakang, kanan, kiri
+
+    const ceilCanvas = document.createElement('canvas');
+    ceilCanvas.width = 512;
+    ceilCanvas.height = 512;
+    const ceilCtx = ceilCanvas.getContext('2d')!;
+    ceilCtx.fillStyle = '#e5e7eb';
+    ceilCtx.fillRect(0, 0, 512, 512);
+    for (let cy = 0; cy < 512; cy += 85) {
+      for (let cx = 0; cx < 512; cx += 85) {
+        ceilCtx.fillStyle = (cx + cy) % 2 === 0 ? '#eceef1' : '#e4e6ea';
+        ceilCtx.fillRect(cx + 3, cy + 3, 80, 80);
+      }
+    }
+    ceilCtx.strokeStyle = '#9ca3af';
+    ceilCtx.lineWidth = 4;
+    for (let i = 0; i <= 512; i += 85) {
+      ceilCtx.beginPath();
+      ceilCtx.moveTo(i, 0);
+      ceilCtx.lineTo(i, 512);
+      ceilCtx.stroke();
+      ceilCtx.beginPath();
+      ceilCtx.moveTo(0, i);
+      ceilCtx.lineTo(512, i);
+      ceilCtx.stroke();
+    }
+    const ceilTex = new THREE.CanvasTexture(ceilCanvas);
+    ceilTex.colorSpace = THREE.SRGBColorSpace;
+    ceilTex.wrapS = THREE.RepeatWrapping;
+    ceilTex.wrapT = THREE.RepeatWrapping;
+    ceilTex.repeat.set(2.2, 1.8);
+
+    const r1CeilingMat = new THREE.MeshStandardMaterial({
+      map: ceilTex,
+      roughness: 0.78,
+      metalness: 0.05,
+      side: THREE.DoubleSide,
+    });
+    const r1CeilSlab = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.2), r1CeilingMat);
+    r1CeilSlab.rotation.x = Math.PI / 2;
+    r1CeilSlab.position.set(7.35, 2.21, 12.85);
+    r1CeilingGroup.add(r1CeilSlab);
+
+    // Drop-ceiling bulkhead beam at hallway threshold (X = 7.25, Y = 2.06..2.21, Z: 12.96..13.58)
+    const r1BulkheadBeam = new THREE.Mesh(
+      new THREE.BoxGeometry(0.16, 0.22, 0.66),
+      partitionWallMat
+    );
+    r1BulkheadBeam.position.set(7.25, 2.10, 13.28);
+    r1CeilingGroup.add(r1BulkheadBeam);
+
+    // 2 Glowing White Fluorescent Ceiling Troffer Lamps (matching all 4 photos)
+    const lampGlowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const lampFrameMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.3, metalness: 0.6 });
+    [
+      { x: 7.82, z: 12.42, w: 0.46, d: 0.14 },
+      { x: 7.96, z: 13.18, w: 0.46, d: 0.14 },
+      { x: 6.45, z: 13.28, w: 0.38, d: 0.12 },
+    ].forEach((lp) => {
+      const lFrame = new THREE.Mesh(new THREE.BoxGeometry(lp.w, 0.02, lp.d), lampFrameMat);
+      lFrame.position.set(lp.x, 2.20, lp.z);
+      r1CeilingGroup.add(lFrame);
+      const lGlow = new THREE.Mesh(new THREE.BoxGeometry(lp.w - 0.04, 0.025, lp.d - 0.03), lampGlowMat);
+      lGlow.position.set(lp.x, 2.195, lp.z);
+      r1CeilingGroup.add(lGlow);
+    });
+
+    // Square 4-Way AC Ceiling Supply Diffusers & Linear Slot Diffuser
+    const acVentMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.5 });
+    [
+      { x: 8.15, z: 12.74 },
+      { x: 7.64, z: 13.06 },
+    ].forEach((ac) => {
+      const outerAc = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.022, 0.20), lampFrameMat);
+      outerAc.position.set(ac.x, 2.20, ac.z);
+      r1CeilingGroup.add(outerAc);
+      const innerAc = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.026, 0.14), acVentMat);
+      innerAc.position.set(ac.x, 2.196, ac.z);
+      r1CeilingGroup.add(innerAc);
+    });
+    // Linear AC slot grill
+    const linearGrill = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.024, 0.07), acVentMat);
+    linearGrill.position.set(8.18, 2.198, 12.46);
+    r1CeilingGroup.add(linearGrill);
+
+    // Missing/Open Dark Ceiling Plenum Tile Slot near the TV corner (matching Tampilan-Depan & Tampilan-kiri)
+    const openPlenumSlot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.03, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0x111827 })
+    );
+    openPlenumSlot.position.set(8.28, 2.198, 12.18);
+    r1CeilingGroup.add(openPlenumSlot);
+
+    // Round White & Orange Ceiling Smoke Detector (visible in Tampilan-Depan, Belakang, Kanan, Kiri)
+    const smokeBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.042, 0.042, 0.025, 16),
+      partitionWallMat
+    );
+    smokeBase.position.set(7.86, 2.195, 12.72);
+    r1CeilingGroup.add(smokeBase);
+    const smokeOrangeCap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.032, 0.036, 0.022, 16),
+      new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.3 })
+    );
+    smokeOrangeCap.position.set(7.86, 2.178, 12.72);
+    r1CeilingGroup.add(smokeOrangeCap);
+
+    dcComplexGroup.add(r1CeilingGroup);
+    this.r1CeilingGroup = r1CeilingGroup;
+
+    // -------------------------------------------------------------------------
+    // Shared Materials & Procedural Detail Textures for Room 1 Furniture & Props
+    // -------------------------------------------------------------------------
+    const r1BrownWoodMat = new THREE.MeshStandardMaterial({ color: 0x6d3f1d, roughness: 0.48, metalness: 0.08 });
+    const r1DrawerWoodMat = new THREE.MeshStandardMaterial({ color: 0x854d27, roughness: 0.42, metalness: 0.06 });
+    const r1DarkSlattedMat = new THREE.MeshStandardMaterial({ color: 0x22252c, roughness: 0.38, metalness: 0.28 });
+    const r1BlueChairMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.55, metalness: 0.05 });
     const r1YellowVestMat = new THREE.MeshStandardMaterial({
       color: 0xd9f99d,
       emissive: 0x84cc16,
-      emissiveIntensity: 0.25,
-      roughness: 0.4,
+      emissiveIntensity: 0.28,
+      roughness: 0.38,
     });
-    const r1SilverMetalMat = new THREE.MeshStandardMaterial({ color: 0xd4d8e0, roughness: 0.22, metalness: 0.82 });
-    const r1GlossBlackMat = new THREE.MeshStandardMaterial({ color: 0x141619, roughness: 0.18, metalness: 0.35 });
-    const r1WaterGallonMat = new THREE.MeshStandardMaterial({
-      color: 0x0ea5e9,
+    const r1SilverMetalMat = new THREE.MeshStandardMaterial({ color: 0xd4d8e0, roughness: 0.20, metalness: 0.84 });
+    const r1GlossBlackMat = new THREE.MeshStandardMaterial({ color: 0x121418, roughness: 0.14, metalness: 0.38 });
+    const r1WaterGallonMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0284c7,
       transparent: true,
-      opacity: 0.78,
-      roughness: 0.15,
-      metalness: 0.1,
-    });
-    const r1GreySofaMat = new THREE.MeshStandardMaterial({ color: 0x787c85, roughness: 0.75, metalness: 0.04 });
-    const r1GreenSeatMat = new THREE.MeshStandardMaterial({ color: 0x4d9c2d, roughness: 0.38, metalness: 0.25 });
-    const r1TealSeatMat = new THREE.MeshStandardMaterial({ color: 0x0d8a72, roughness: 0.38, metalness: 0.25 });
-    const r1RedAparMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3, metalness: 0.25 });
-    const r1CardboardMat = new THREE.MeshStandardMaterial({ color: 0xb08254, roughness: 0.75 });
-    const r1BlueScreenMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const r1DarkWindowMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
+      opacity: 0.80,
       roughness: 0.12,
-      metalness: 0.65,
+      metalness: 0.08,
+      clearcoat: 0.6,
+    });
+    const r1GallonGreenCapMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.3 });
+    const r1GreySofaMat = new THREE.MeshStandardMaterial({ color: 0x848994, roughness: 0.72, metalness: 0.04 });
+    const r1GreenSeatMat = new THREE.MeshStandardMaterial({ color: 0x245c3b, roughness: 0.36, metalness: 0.25 });
+    const r1TealSeatMat = new THREE.MeshStandardMaterial({ color: 0x136f82, roughness: 0.36, metalness: 0.25 });
+    const r1RedAparMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.28, metalness: 0.25 });
+    const r1CardboardMat = new THREE.MeshStandardMaterial({ color: 0xb58858, roughness: 0.72 });
+    const r1DarkWindowMat = new THREE.MeshStandardMaterial({
+      color: 0x0b1120,
+      roughness: 0.10,
+      metalness: 0.70,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.92,
+    });
+
+    // Procedural Texture 1: Tilted Blue/White Multi-Window CCTV/NMS Monitoring TV Screen
+    const cctvCanvas = document.createElement('canvas');
+    cctvCanvas.width = 256;
+    cctvCanvas.height = 160;
+    const cctvCtx = cctvCanvas.getContext('2d')!;
+    cctvCtx.fillStyle = '#1e3a8a';
+    cctvCtx.fillRect(0, 0, 256, 160);
+    cctvCtx.fillStyle = '#38bdf8';
+    cctvCtx.fillRect(6, 6, 244, 14);
+    // Multi-pane monitoring windows matching Tampilan-Depan.jpg
+    const panes = [
+      { x: 8, y: 24, w: 74, h: 60, c: '#0f172a' },
+      { x: 86, y: 24, w: 80, h: 60, c: '#f8fafc' },
+      { x: 170, y: 24, w: 78, h: 60, c: '#0f172a' },
+      { x: 8, y: 88, w: 74, h: 62, c: '#e2e8f0' },
+      { x: 86, y: 88, w: 80, h: 62, c: '#cbd5e1' },
+      { x: 170, y: 88, w: 78, h: 62, c: '#090d16' },
+    ];
+    panes.forEach((p) => {
+      cctvCtx.fillStyle = p.c;
+      cctvCtx.fillRect(p.x, p.y, p.w, p.h);
+      cctvCtx.strokeStyle = '#60a5fa';
+      cctvCtx.lineWidth = 2;
+      cctvCtx.strokeRect(p.x, p.y, p.w, p.h);
+    });
+    const r1CctvScreenTex = new THREE.CanvasTexture(cctvCanvas);
+    r1CctvScreenTex.colorSpace = THREE.SRGBColorSpace;
+    const r1CctvScreenMat = new THREE.MeshBasicMaterial({ map: r1CctvScreenTex });
+
+    // Procedural Texture 2: Glossy Black Refrigerator Door with Golden-Olive Calla Lily Floral Motif
+    const fridgeCanvas = document.createElement('canvas');
+    fridgeCanvas.width = 256;
+    fridgeCanvas.height = 512;
+    const fCtx = fridgeCanvas.getContext('2d')!;
+    fCtx.fillStyle = '#0d0f12';
+    fCtx.fillRect(0, 0, 256, 512);
+    // Silver edge trim
+    fCtx.strokeStyle = '#94a3b8';
+    fCtx.lineWidth = 6;
+    fCtx.strokeRect(3, 3, 250, 506);
+    // Energy sticker on top-right corner
+    fCtx.fillStyle = '#e2e8f0';
+    fCtx.fillRect(216, 22, 22, 54);
+    fCtx.fillStyle = '#16a34a';
+    fCtx.fillRect(218, 26, 18, 14);
+    // Golden-olive Calla Lily blossoms & stems (matching Tampilan-Depan.jpg)
+    fCtx.strokeStyle = '#8b8040';
+    fCtx.lineWidth = 4;
+    fCtx.beginPath();
+    fCtx.moveTo(125, 490);
+    fCtx.quadraticCurveTo(105, 340, 88, 220);
+    fCtx.moveTo(125, 490);
+    fCtx.quadraticCurveTo(145, 380, 118, 310);
+    fCtx.stroke();
+    // Large upper golden-olive flower petal
+    fCtx.fillStyle = '#7c7234';
+    fCtx.beginPath();
+    fCtx.ellipse(88, 200, 42, 34, -0.2, 0, Math.PI * 2);
+    fCtx.fill();
+    fCtx.fillStyle = '#a89c4a';
+    fCtx.beginPath();
+    fCtx.ellipse(88, 196, 26, 20, 0.1, 0, Math.PI * 2);
+    fCtx.fill();
+    // Lower golden-olive flower petal
+    fCtx.fillStyle = '#736a30';
+    fCtx.beginPath();
+    fCtx.ellipse(115, 298, 30, 24, 0.25, 0, Math.PI * 2);
+    fCtx.fill();
+    const r1FridgeDoorTex = new THREE.CanvasTexture(fridgeCanvas);
+    r1FridgeDoorTex.colorSpace = THREE.SRGBColorSpace;
+    const r1FridgeDoorMat = new THREE.MeshStandardMaterial({
+      map: r1FridgeDoorTex,
+      roughness: 0.12,
+      metalness: 0.35,
+    });
+
+    // Procedural Texture 3: Whiteboard with Schematic Diagram & Red/Blue Stickers (matching Tampilan-kiri.jpg)
+    const wbCanvas = document.createElement('canvas');
+    wbCanvas.width = 512;
+    wbCanvas.height = 340;
+    const wbCtx = wbCanvas.getContext('2d')!;
+    wbCtx.fillStyle = '#f8fafc';
+    wbCtx.fillRect(0, 0, 512, 340);
+    wbCtx.strokeStyle = '#94a3b8';
+    wbCtx.lineWidth = 10;
+    wbCtx.strokeRect(5, 5, 502, 330);
+    // Top-left green/blue logo line & red sticker
+    wbCtx.fillStyle = '#0284c7';
+    wbCtx.fillRect(22, 22, 65, 8);
+    wbCtx.fillStyle = '#dc2626';
+    wbCtx.fillRect(425, 18, 18, 22);
+    // Two blue stickers on the right side
+    wbCtx.fillStyle = '#0ea5e9';
+    wbCtx.fillRect(452, 22, 42, 34);
+    wbCtx.fillRect(452, 66, 42, 34);
+    // Faint marker schematic drawing in the center of the whiteboard
+    wbCtx.strokeStyle = '#64748b';
+    wbCtx.lineWidth = 2.5;
+    wbCtx.strokeRect(145, 155, 110, 65);
+    wbCtx.beginPath();
+    wbCtx.moveTo(255, 185);
+    wbCtx.lineTo(315, 145);
+    wbCtx.lineTo(355, 205);
+    wbCtx.stroke();
+    const r1WhiteboardTex = new THREE.CanvasTexture(wbCanvas);
+    r1WhiteboardTex.colorSpace = THREE.SRGBColorSpace;
+    const r1WhiteboardFrontMat = new THREE.MeshStandardMaterial({
+      map: r1WhiteboardTex,
+      roughness: 0.18,
+      metalness: 0.05,
     });
 
     const markR1Interactable = (obj: THREE.Object3D) => {
@@ -1847,314 +2159,600 @@ export class AirportSceneManager {
     // -------------------------------------------------------------------------
     // 1. TAMPILAN DEPAN (+X WALL AT X = 8.70, Z: 12.0..13.6)
     //    - Brown wooden PC desk with 3 drawers, white LCD monitor, black PC tower, subwoofer
-    //    - Tilted blue/white CCTV/NMS monitoring TV + digital clock on wall above desk
-    //    - Silver tall water dispenser
-    //    - Glossy black floral single-door refrigerator (with red biscuit tins & white bowl on top)
-    //    - 8 blue 19L water gallons in 2 rows on floor + black tripod stand with gooseneck arm
-    //    - Cylindrical stainless-steel trash bin with dome lid at right corner
+    //    - Wall power sockets + hanging black cables, tilted CCTV/NMS TV + black digital clock box
+    //    - Silver tall water dispenser + 5R K3 poster on wall
+    //    - Glossy black floral refrigerator + red Fox's biscuit tins, white ceramic bowl & mug on top
+    //    - 8 blue 19L water gallons with white labels in 2 rows + black 3-leg tripod with gooseneck arm
+    //    - Cylindrical brushed stainless-steel trash bin with dome swing lid at right corner
     // -------------------------------------------------------------------------
-    // Brown Wooden PC Desk (X = 8.46, Z = 12.32)
-    const r1PcDeskTop = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.03, 0.52), r1BrownWoodMat);
-    r1PcDeskTop.position.set(8.46, 0.68 + 0.42, 12.32);
+    // Brown Wooden PC Desk (X = 8.45, Z = 12.32)
+    const r1PcDeskTop = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.54), r1BrownWoodMat);
+    r1PcDeskTop.position.set(8.45, 0.68 + 0.42, 12.32);
     r1PcDeskTop.castShadow = true;
     markR1Interactable(r1PcDeskTop);
     dcComplexGroup.add(r1PcDeskTop);
 
-    const r1PcDeskLeftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.41, 0.03), r1BrownWoodMat);
-    r1PcDeskLeftPanel.position.set(8.46, 0.68 + 0.205, 12.08);
+    const r1PcDeskLeftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.41, 0.03), r1BrownWoodMat);
+    r1PcDeskLeftPanel.position.set(8.45, 0.68 + 0.205, 12.07);
     dcComplexGroup.add(r1PcDeskLeftPanel);
 
-    const r1PcDeskDrawerBox = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.41, 0.18), r1BrownWoodMat);
-    r1PcDeskDrawerBox.position.set(8.46, 0.68 + 0.205, 12.48);
+    const r1PcDeskBackPanel = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.36, 0.50), r1BrownWoodMat);
+    r1PcDeskBackPanel.position.set(8.59, 0.68 + 0.22, 12.32);
+    dcComplexGroup.add(r1PcDeskBackPanel);
+
+    // Right pedestal with 3 distinct lighter-brown wooden drawers & black handles
+    const r1PcDeskDrawerBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.41, 0.18), r1BrownWoodMat);
+    r1PcDeskDrawerBox.position.set(8.45, 0.68 + 0.205, 12.49);
     dcComplexGroup.add(r1PcDeskDrawerBox);
+    [0.10, 0.21, 0.32].forEach((dy) => {
+      const drwFace = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.095, 0.16), r1DrawerWoodMat);
+      drwFace.position.set(8.285, 0.68 + dy, 12.49);
+      dcComplexGroup.add(drwFace);
+      const drwPull = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.015, 0.045), r1GlossBlackMat);
+      drwPull.position.set(8.275, 0.68 + dy, 12.49);
+      dcComplexGroup.add(drwPull);
+    });
 
-    // Black Subwoofer under PC Desk
-    const r1Subwoofer = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.14), r1GlossBlackMat);
-    r1Subwoofer.position.set(8.48, 0.68 + 0.08, 12.26);
+    // Black Subwoofer Speaker with Silver Woofer Ring under PC Desk
+    const r1Subwoofer = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.18, 0.14), r1GlossBlackMat);
+    r1Subwoofer.position.set(8.44, 0.68 + 0.09, 12.16);
     dcComplexGroup.add(r1Subwoofer);
+    const r1SubRing = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.008, 8, 16), r1SilverMetalMat);
+    r1SubRing.rotation.y = Math.PI / 2;
+    r1SubRing.position.set(8.362, 0.68 + 0.08, 12.16);
+    dcComplexGroup.add(r1SubRing);
 
-    // White/Silver LCD Monitor + Black PC Tower on PC Desk
-    const r1PcMonitorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.24), partitionWallMat);
-    r1PcMonitorFrame.position.set(8.44, 0.68 + 0.54, 12.24);
+    // White-Bezel LCD Monitor + Keyboard + Black PC Tower on PC Desk
+    const r1PcMonitorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.19, 0.26), partitionWallMat);
+    r1PcMonitorFrame.position.set(8.44, 0.68 + 0.54, 12.30);
     dcComplexGroup.add(r1PcMonitorFrame);
-    const r1PcMonitorScreen = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.14, 0.20), r1BlueScreenMat);
-    r1PcMonitorScreen.position.set(8.42, 0.68 + 0.54, 12.24);
+    const r1PcMonitorStand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.08), r1SilverMetalMat);
+    r1PcMonitorStand.position.set(8.45, 0.68 + 0.45, 12.30);
+    dcComplexGroup.add(r1PcMonitorStand);
+    const r1PcMonitorScreen = new THREE.Mesh(
+      new THREE.BoxGeometry(0.008, 0.155, 0.225),
+      new THREE.MeshBasicMaterial({ color: 0xe0f2fe })
+    );
+    r1PcMonitorScreen.position.set(8.425, 0.68 + 0.54, 12.30);
     dcComplexGroup.add(r1PcMonitorScreen);
-    const r1PcTower = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.09), r1GlossBlackMat);
-    r1PcTower.position.set(8.46, 0.68 + 0.54, 12.48);
+
+    // Black keyboard & mouse pad on desk
+    const r1Keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.22), r1GlossBlackMat);
+    r1Keyboard.position.set(8.35, 0.68 + 0.44, 12.32);
+    dcComplexGroup.add(r1Keyboard);
+
+    // Black PC Tower on left side of desk (Z = 12.13)
+    const r1PcTower = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.22, 0.11), r1GlossBlackMat);
+    r1PcTower.position.set(8.45, 0.68 + 0.54, 12.13);
     dcComplexGroup.add(r1PcTower);
 
-    // Wall-mounted Tilted Glowing Blue CCTV/NMS Monitoring TV above PC Desk (X = 8.59, Y = 1.66, Z = 12.34)
+    // Wall Power Sockets + Hanging Black Cables on +X wall above PC Desk
+    const r1PowerSocket = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.045, 0.12), partitionWallMat);
+    r1PowerSocket.position.set(8.61, 1.38, 12.24);
+    dcComplexGroup.add(r1PowerSocket);
+    [12.22, 12.36, 12.48].forEach((cz) => {
+      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.34, 6), r1GlossBlackMat);
+      cord.position.set(8.605, 1.32, cz);
+      cord.rotation.x = 0.08;
+      dcComplexGroup.add(cord);
+    });
+
+    // Wall-mounted Tilted Glowing Blue/White CCTV/NMS Monitoring TV above PC Desk (X = 8.58, Y = 1.65, Z = 12.35)
     const r1WallCctvGroup = new THREE.Group();
-    r1WallCctvGroup.position.set(8.59, 1.66, 12.34);
-    r1WallCctvGroup.rotation.z = 0.16; // Slight downward tilt towards room
-    const r1WallCctvBezel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.30, 0.48), r1GlossBlackMat);
+    r1WallCctvGroup.position.set(8.58, 1.65, 12.35);
+    r1WallCctvGroup.rotation.z = 0.18; // Downward tilt towards the room
+    const r1WallCctvBezel = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.30, 0.48), r1GlossBlackMat);
     r1WallCctvGroup.add(r1WallCctvBezel);
-    const r1WallCctvScreen = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.25, 0.43), r1BlueScreenMat);
-    r1WallCctvScreen.position.x = -0.022;
+    const r1WallCctvScreen = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.26, 0.44), r1CctvScreenMat);
+    r1WallCctvScreen.position.x = -0.018;
     r1WallCctvGroup.add(r1WallCctvScreen);
     dcComplexGroup.add(r1WallCctvGroup);
 
-    // Small Digital Clock / Sensor Box above the CCTV TV
-    const r1ClockBox = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.16), partitionWallMat);
-    r1ClockBox.position.set(8.60, 1.92, 12.34);
+    // Black 3-Panel Digital Clock / Display Box above the CCTV TV (matching Tampilan-Depan.jpg)
+    const r1ClockBox = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.09, 0.20), r1GlossBlackMat);
+    r1ClockBox.position.set(8.60, 1.86, 12.35);
     dcComplexGroup.add(r1ClockBox);
 
-    // Silver & Black Tall Standing Water Dispenser (X = 8.48, Z = 12.70)
-    const r1DispenserBody = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.56, 0.20), r1SilverMetalMat);
-    r1DispenserBody.position.set(8.48, 0.68 + 0.28, 12.70);
+    // Framed 5R / K3 Poster & Hanging Key Lanyards on +X Wall (Z = 12.78 & Z = 12.98)
+    const r1Poster = new THREE.Mesh(
+      new THREE.BoxGeometry(0.01, 0.18, 0.13),
+      new THREE.MeshBasicMaterial({ color: 0xf1f5f9 })
+    );
+    r1Poster.position.set(8.61, 1.56, 12.78);
+    dcComplexGroup.add(r1Poster);
+
+    // Hanging Key Lanyards on +X wall (Z = 12.98)
+    const r1KeyHook = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.06), r1GlossBlackMat);
+    r1KeyHook.position.set(8.61, 1.44, 12.98);
+    dcComplexGroup.add(r1KeyHook);
+
+    // Vertical White PVC Cable Trunking Pipe on +X Wall (Z = 13.26)
+    const r1PvcPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.52, 8), partitionWallMat);
+    r1PvcPipe.position.set(8.61, 0.68 + 0.76, 13.26);
+    dcComplexGroup.add(r1PvcPipe);
+
+    // Silver & Metallic-Grey Tall Standing Water Dispenser (X = 8.48, Z = 12.68)
+    const r1DispenserBody = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.56, 0.20), r1SilverMetalMat);
+    r1DispenserBody.position.set(8.48, 0.68 + 0.28, 12.68);
     r1DispenserBody.castShadow = true;
     markR1Interactable(r1DispenserBody);
     dcComplexGroup.add(r1DispenserBody);
-    const r1DispenserNiche = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.18, 0.14), r1GlossBlackMat);
-    r1DispenserNiche.position.set(8.375, 0.68 + 0.40, 12.70);
+    const r1DispenserNiche = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.16, 0.14), r1GlossBlackMat);
+    r1DispenserNiche.position.set(8.368, 0.68 + 0.41, 12.68);
     dcComplexGroup.add(r1DispenserNiche);
+    const r1DispenserSticker = new THREE.Mesh(
+      new THREE.BoxGeometry(0.01, 0.14, 0.10),
+      new THREE.MeshBasicMaterial({ color: 0xdcfce7 })
+    );
+    r1DispenserSticker.position.set(8.368, 0.68 + 0.18, 12.68);
+    dcComplexGroup.add(r1DispenserSticker);
 
-    // Glossy Black Single-Door Refrigerator with Golden Floral Motif (X = 8.45, Z = 12.98)
-    const r1Fridge = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.74, 0.32), r1GlossBlackMat);
-    r1Fridge.position.set(8.45, 0.68 + 0.37, 12.98);
+    // Glossy Black Single-Door Refrigerator with Golden Floral Motif (X = 8.45, Z = 12.92)
+    const r1Fridge = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.74, 0.30), r1SilverMetalMat);
+    r1Fridge.position.set(8.45, 0.68 + 0.37, 12.92);
     r1Fridge.castShadow = true;
     markR1Interactable(r1Fridge);
     dcComplexGroup.add(r1Fridge);
-    // Subtle golden floral accent strip on the black fridge door
-    const r1FridgeGoldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.7 });
-    const r1FridgeMotif = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.52, 0.08), r1FridgeGoldMat);
-    r1FridgeMotif.position.set(8.288, 0.68 + 0.38, 12.94);
-    dcComplexGroup.add(r1FridgeMotif);
-    // Red biscuit tins & white ceramic bowl on top of the refrigerator
-    const r1RedTin1 = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.12, 0.11), r1RedAparMat);
-    r1RedTin1.position.set(8.44, 0.68 + 0.80, 12.90);
-    dcComplexGroup.add(r1RedTin1);
-    const r1WhiteBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.06, 14), partitionWallMat);
-    r1WhiteBowl.position.set(8.42, 0.68 + 0.77, 13.04);
-    dcComplexGroup.add(r1WhiteBowl);
+    // Front Glossy Black Floral Door Panel
+    const r1FridgeDoor = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.73, 0.295), r1FridgeDoorMat);
+    r1FridgeDoor.position.set(8.285, 0.68 + 0.37, 12.92);
+    dcComplexGroup.add(r1FridgeDoor);
 
-    // 8 Translucent Blue 19L Water Gallons in 2 Rows on Floor (X: 8.04 & 8.22, Z: 12.66..13.20)
-    [8.04, 8.22].forEach((gx) => {
-      [12.68, 12.84, 13.00, 13.16].forEach((gz) => {
+    // Items on top of the Refrigerator & Dispenser (Red/Yellow Fox's Biscuit Tins, White Ceramic Bowl & White Mug)
+    const r1WhiteBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.038, 0.048, 18), partitionWallMat);
+    r1WhiteBowl.position.set(8.44, 0.68 + 0.585, 12.68);
+    dcComplexGroup.add(r1WhiteBowl);
+    const r1WhiteMug = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.026, 0.055, 14), partitionWallMat);
+    r1WhiteMug.position.set(8.49, 0.68 + 0.585, 12.74);
+    dcComplexGroup.add(r1WhiteMug);
+    const r1FoxTin1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.09, 16), r1RedAparMat);
+    r1FoxTin1.position.set(8.46, 0.68 + 0.785, 12.86);
+    dcComplexGroup.add(r1FoxTin1);
+    const r1FoxTin2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.038, 0.075, 16),
+      new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.35 })
+    );
+    r1FoxTin2.position.set(8.42, 0.68 + 0.775, 12.93);
+    dcComplexGroup.add(r1FoxTin2);
+
+    // 8 Translucent Blue 19L Water Gallons with White Labels in 2 Rows on Floor (X: 8.32 & 8.48, Z: 13.10..13.38)
+    const r1GallonLabelMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+    [8.33, 8.49].forEach((gx, rowIdx) => {
+      [13.10, 13.20, 13.30, 13.40].forEach((gz, colIdx) => {
         const galGroup = new THREE.Group();
         galGroup.position.set(gx, 0.68, gz);
-        const galBody = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.24, 14), r1WaterGallonMat);
-        galBody.position.y = 0.12;
+        const galBody = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.21, 16), r1WaterGallonMat);
+        galBody.position.y = 0.105;
         galBody.castShadow = true;
         galGroup.add(galBody);
-        const galNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.036, 0.05, 12), r1WaterGallonMat);
-        galNeck.position.y = 0.26;
-        galGroup.add(galNeck);
-        const galCap = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.02, 12), r1BlueChairMat);
-        galCap.position.y = 0.29;
+        // Horizontal molded rings on the 19L gallon
+        [0.06, 0.11, 0.16].forEach((ry) => {
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.057, 0.004, 8, 18), r1WaterGallonMat);
+          ring.rotation.x = Math.PI / 2;
+          ring.position.y = ry;
+          galGroup.add(ring);
+        });
+        // White sticker label on front gallons
+        if (rowIdx === 0) {
+          const lbl = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.058, 0.058, 0.055, 12, 1, true, -Math.PI * 0.75, Math.PI * 0.5),
+            r1GallonLabelMat
+          );
+          lbl.position.y = 0.095;
+          galGroup.add(lbl);
+        }
+        const galShoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.054, 0.045, 14), r1WaterGallonMat);
+        galShoulder.position.y = 0.23;
+        galGroup.add(galShoulder);
+        const galCap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.018, 0.018, 0.025, 12),
+          (colIdx + rowIdx) % 2 === 0 ? r1GallonGreenCapMat : r1BlueChairMat
+        );
+        galCap.position.y = 0.265;
         galGroup.add(galCap);
         dcComplexGroup.add(galGroup);
       });
     });
 
-    // Black Telescopic Tripod Stand with Gooseneck Holder in front of the Water Gallons (X = 7.88, Z = 12.78)
-    const r1TripodPole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.68, 10), r1GlossBlackMat);
-    r1TripodPole.position.set(7.88, 0.68 + 0.34, 12.78);
-    dcComplexGroup.add(r1TripodPole);
-    const r1TripodBase = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.12, 3), r1GlossBlackMat);
-    r1TripodBase.position.set(7.88, 0.68 + 0.06, 12.78);
-    dcComplexGroup.add(r1TripodBase);
+    // Black Telescopic 3-Legged Tripod Stand with Gooseneck Holder in front of the Water Gallons (X = 8.15, Z = 13.26)
+    const r1TripodGroup = new THREE.Group();
+    r1TripodGroup.position.set(8.15, 0.68, 13.26);
+    const r1TripodPole = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.011, 0.62, 10), r1GlossBlackMat);
+    r1TripodPole.position.y = 0.34;
+    r1TripodGroup.add(r1TripodPole);
+    // 3 splayed tripod legs at the bottom
+    [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].forEach((ang) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.20, 8), r1GlossBlackMat);
+      leg.position.set(Math.cos(ang) * 0.07, 0.05, Math.sin(ang) * 0.07);
+      leg.rotation.z = -Math.cos(ang) * 0.95;
+      leg.rotation.x = Math.sin(ang) * 0.95;
+      r1TripodGroup.add(leg);
+    });
+    // Curved gooseneck arm & clip at top of tripod
+    const r1Gooseneck = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.16, 8), r1GlossBlackMat);
+    r1Gooseneck.position.set(-0.04, 0.66, -0.03);
+    r1Gooseneck.rotation.z = 1.15;
+    r1TripodGroup.add(r1Gooseneck);
+    const r1MicClip = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.03, 0.025), r1GlossBlackMat);
+    r1MicClip.position.set(-0.11, 0.69, -0.04);
+    r1TripodGroup.add(r1MicClip);
+    dcComplexGroup.add(r1TripodGroup);
 
-    // Cylindrical Brushed Stainless-Steel Trash Bin with Dome Lid at Right Corner (X = 8.48, Z = 13.43)
-    const r1TrashBin = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.36, 18), r1SilverMetalMat);
-    r1TrashBin.position.set(8.48, 0.68 + 0.18, 13.43);
+    // Cylindrical Brushed Stainless-Steel Trash Bin with Swing-Dome Lid at Right Corner (X = 8.48, Z = 13.48)
+    const r1TrashBin = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.084, 0.34, 22), r1SilverMetalMat);
+    r1TrashBin.position.set(8.48, 0.68 + 0.17, 13.48);
     r1TrashBin.castShadow = true;
     dcComplexGroup.add(r1TrashBin);
-    const r1TrashDome = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), r1SilverMetalMat);
-    r1TrashDome.position.set(8.48, 0.68 + 0.36, 13.43);
+    // Clear plastic trash liner collar around rim
+    const r1TrashLiner = new THREE.Mesh(
+      new THREE.TorusGeometry(0.089, 0.009, 8, 22),
+      new THREE.MeshBasicMaterial({ color: 0xe2e8f0 })
+    );
+    r1TrashLiner.rotation.x = Math.PI / 2;
+    r1TrashLiner.position.set(8.48, 0.68 + 0.33, 13.48);
+    dcComplexGroup.add(r1TrashLiner);
+    const r1TrashDome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.086, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.45),
+      r1SilverMetalMat
+    );
+    r1TrashDome.position.set(8.48, 0.68 + 0.33, 13.48);
     dcComplexGroup.add(r1TrashDome);
 
     // -------------------------------------------------------------------------
     // 2. TAMPILAN KIRI (-Z WALL AT Z = 12.00, X: 7.25..8.70)
-    //    - Wall-mounted Whiteboard (left-center) & Wall-mounted Black Flat-Screen TV (right-center)
+    //    - Wall-mounted Whiteboard (left-center) with schematic & stickers + Black Flat-Screen TV (right-center)
     //    - Grey 2-Seater Fabric Sofa against -Z wall below whiteboard + black backpack
-    //    - Black Slatted Rectangular Coffee/Meeting Table in front of sofa (with cardboard box, bottle & tumbler)
-    //    - 2 Blue Ergonomic Swivel Office Chairs (1 in front of coffee table, 1 with yellow safety vest at PC desk)
+    //    - Black Slatted Rectangular Coffee Table in front of sofa (with cardboard box, plastic cup, water bottle, laptop & tumbler)
+    //    - 2 Blue Ergonomic 5-Wheel Swivel Office Chairs (1 in front of coffee table, 1 with neon yellow vest at PC desk)
     // -------------------------------------------------------------------------
-    // Wall-mounted Whiteboard on -Z wall (X = 7.70, Y = 1.54, Z = 12.09)
-    const r1WhiteboardFrame = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.38, 0.025), r1SilverMetalMat);
-    r1WhiteboardFrame.position.set(7.70, 1.54, 12.09);
+    // Wall-mounted Whiteboard on -Z wall (X = 7.72, Y = 1.52, Z = 12.09)
+    const r1WhiteboardFrame = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.34, 0.02), r1WhiteboardFrontMat);
+    r1WhiteboardFrame.position.set(7.72, 1.52, 12.09);
     dcComplexGroup.add(r1WhiteboardFrame);
-    const r1WhiteboardSurface = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.34, 0.015), partitionWallMat);
-    r1WhiteboardSurface.position.set(7.70, 1.54, 12.10);
-    dcComplexGroup.add(r1WhiteboardSurface);
+    const r1MarkerTray = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.015, 0.035), r1SilverMetalMat);
+    r1MarkerTray.position.set(7.72, 1.35, 12.10);
+    dcComplexGroup.add(r1MarkerTray);
 
-    // Wall-mounted Black Flat-Screen TV (OFF) on -Z wall (X = 8.26, Y = 1.55, Z = 12.09)
-    const r1LeftWallTv = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.03), r1GlossBlackMat);
-    r1LeftWallTv.position.set(8.26, 1.55, 12.09);
+    // Wall-mounted Black Flat-Screen TV (OFF) on -Z wall (X = 8.26, Y = 1.56, Z = 12.09)
+    const r1LeftWallTv = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.27, 0.028), r1GlossBlackMat);
+    r1LeftWallTv.position.set(8.26, 1.56, 12.09);
     dcComplexGroup.add(r1LeftWallTv);
 
-    // Grey 2-Seater Upholstered Fabric Sofa against -Z wall (X = 7.72, Z = 12.24)
+    // Grey 2-Seater Upholstered Fabric Sofa against -Z wall (X = 7.74, Z = 12.24)
     const r1SofaGroup = new THREE.Group();
-    r1SofaGroup.position.set(7.72, 0.68, 12.24);
-    const r1SofaSeat = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.18, 0.28), r1GreySofaMat);
+    r1SofaGroup.position.set(7.74, 0.68, 12.24);
+    const r1SofaSeat = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.17, 0.28), r1GreySofaMat);
     r1SofaSeat.position.y = 0.14;
     r1SofaSeat.castShadow = true;
     markR1Interactable(r1SofaSeat);
     r1SofaGroup.add(r1SofaSeat);
-    const r1SofaBack = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.36, 0.09), r1GreySofaMat);
-    r1SofaBack.position.set(0, 0.26, -0.10);
+    const r1SofaBack = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.36, 0.09), r1GreySofaMat);
+    r1SofaBack.position.set(0, 0.27, -0.10);
+    r1SofaBack.rotation.x = -0.10;
     r1SofaGroup.add(r1SofaBack);
-    [-0.29, 0.29].forEach((ax) => {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.26, 0.28), r1GreySofaMat);
-      arm.position.set(ax, 0.19, 0);
+    [-0.31, 0.31].forEach((ax) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.24, 0.28), r1GreySofaMat);
+      arm.position.set(ax, 0.18, 0);
       r1SofaGroup.add(arm);
     });
-    // Black backpack resting on left side of sofa
-    const r1Backpack = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.12), r1GlossBlackMat);
-    r1Backpack.position.set(-0.18, 0.30, 0.02);
+    // Black backpack resting on center-left cushion of sofa
+    const r1Backpack = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.13), r1GlossBlackMat);
+    r1Backpack.position.set(-0.06, 0.28, 0.02);
+    r1Backpack.rotation.z = 0.25;
     r1SofaGroup.add(r1Backpack);
     dcComplexGroup.add(r1SofaGroup);
 
-    // Black Slatted Rectangular Coffee / Meeting Table in front of Sofa (X = 7.74, Z = 12.60)
-    const r1CoffeeTableTop = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.035, 0.32), r1DarkSlattedMat);
-    r1CoffeeTableTop.position.set(7.74, 0.68 + 0.34, 12.60);
-    r1CoffeeTableTop.castShadow = true;
-    markR1Interactable(r1CoffeeTableTop);
-    dcComplexGroup.add(r1CoffeeTableTop);
-    [-0.24, 0.24].forEach((lx) => {
-      [-0.12, 0.12].forEach((lz) => {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.03), r1DarkSlattedMat);
-        leg.position.set(7.74 + lx, 0.68 + 0.17, 12.60 + lz);
-        dcComplexGroup.add(leg);
+    // Black Slatted Rectangular Coffee / Meeting Table in front of Sofa (X = 7.64, Z = 12.56)
+    const r1TableGroup = new THREE.Group();
+    r1TableGroup.position.set(7.64, 0.68, 12.56);
+    // Perimeter steel frame
+    const r1TableFrame = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.022, 0.56), r1DarkSlattedMat);
+    r1TableFrame.position.y = 0.33;
+    r1TableFrame.castShadow = true;
+    markR1Interactable(r1TableFrame);
+    r1TableGroup.add(r1TableFrame);
+    // Slatted top bars running along Z
+    for (let sx = -0.14; sx <= 0.14; sx += 0.035) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.008, 0.54), r1GlossBlackMat);
+      slat.position.set(sx, 0.343, 0);
+      r1TableGroup.add(slat);
+    }
+    // 4 slightly splayed tubular black legs
+    [-0.14, 0.14].forEach((lx) => {
+      [-0.24, 0.24].forEach((lz) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.010, 0.33, 10), r1GlossBlackMat);
+        leg.position.set(lx, 0.165, lz);
+        leg.rotation.z = lx > 0 ? -0.06 : 0.06;
+        leg.rotation.x = lz > 0 ? 0.05 : -0.05;
+        r1TableGroup.add(leg);
       });
     });
-    // Brown cardboard box + water bottle + black tumbler on the coffee table
-    const r1TableBox = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.11, 0.12), r1CardboardMat);
-    r1TableBox.position.set(7.62, 0.68 + 0.41, 12.58);
-    dcComplexGroup.add(r1TableBox);
-    const r1TableTumbler = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.11, 10), r1GlossBlackMat);
-    r1TableTumbler.position.set(7.86, 0.68 + 0.41, 12.62);
-    dcComplexGroup.add(r1TableTumbler);
+    // Props on the slatted coffee table:
+    // 1) Brown/white cardboard box (front-right towards Z+)
+    const r1TableBox = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.055, 0.15), r1CardboardMat);
+    r1TableBox.position.set(0.06, 0.372, 0.14);
+    r1TableGroup.add(r1TableBox);
+    const r1TableBoxTop = new THREE.Mesh(
+      new THREE.BoxGeometry(0.11, 0.006, 0.13),
+      new THREE.MeshBasicMaterial({ color: 0xf8fafc })
+    );
+    r1TableBoxTop.position.set(0.06, 0.402, 0.14);
+    r1TableGroup.add(r1TableBoxTop);
+    // 2) Clear plastic cup (front-left)
+    const r1PlasticCup = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.015, 0.055, 12), r1WaterGallonMat);
+    r1PlasticCup.position.set(-0.10, 0.372, 0.15);
+    r1TableGroup.add(r1PlasticCup);
+    // 3) Clear mineral water bottle with blue cap (center)
+    const r1WaterBottle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.11, 12), r1WaterGallonMat);
+    r1WaterBottle.position.set(0.02, 0.40, -0.02);
+    r1TableGroup.add(r1WaterBottle);
+    const r1BottleCap = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.018, 10), r1BlueChairMat);
+    r1BottleCap.position.set(0.02, 0.46, -0.02);
+    r1TableGroup.add(r1BottleCap);
+    // 4) Closed Black Laptop (back-left)
+    const r1Laptop = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.014, 0.12), r1GlossBlackMat);
+    r1Laptop.position.set(-0.04, 0.352, -0.15);
+    r1TableGroup.add(r1Laptop);
+    // 5) Tall Matte-Black Stainless Tumbler with loop cap (back-right)
+    const r1Tumbler = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.021, 0.14, 14), r1GlossBlackMat);
+    r1Tumbler.position.set(0.10, 0.415, -0.14);
+    r1TableGroup.add(r1Tumbler);
+    dcComplexGroup.add(r1TableGroup);
 
-    // Helper to build Blue Ergonomic Swivel Office Chair (with optional yellow safety vest)
+    // Helper to build Detailed Blue Ergonomic 5-Wheel Swivel Office Chair (with curved armrests & optional yellow safety vest)
     const addR1BlueSwivelChair = (cx: number, cz: number, rotY: number, withYellowVest: boolean = false) => {
       const cg = new THREE.Group();
       cg.position.set(cx, 0.68, cz);
       cg.rotation.y = rotY;
-      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.04, 6), r1GlossBlackMat);
-      base.position.y = 0.03;
-      cg.add(base);
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.18, 8), r1GlossBlackMat);
-      stem.position.y = 0.12;
+      // 5-Star Black Nylon Base + 5 Caster Wheels
+      for (let w = 0; w < 5; w++) {
+        const ang = (w / 5) * Math.PI * 2;
+        const legArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.018, 0.022), r1GlossBlackMat);
+        legArm.position.set(Math.cos(ang) * 0.065, 0.032, Math.sin(ang) * 0.065);
+        legArm.rotation.y = -ang;
+        cg.add(legArm);
+        const caster = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.018, 10), r1GlossBlackMat);
+        caster.rotation.x = Math.PI / 2;
+        caster.position.set(Math.cos(ang) * 0.12, 0.016, Math.sin(ang) * 0.12);
+        cg.add(caster);
+      }
+      // Pneumatic center column
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 0.16, 10), r1GlossBlackMat);
+      stem.position.y = 0.11;
       cg.add(stem);
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.045, 0.22), r1BlueChairMat);
-      seat.position.y = 0.22;
+      // Contoured Royal-Blue Upholstered Seat Cushion
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.045, 0.22), r1BlueChairMat);
+      seat.position.y = 0.20;
       seat.castShadow = true;
       markR1Interactable(seat);
       cg.add(seat);
-      const back = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.26, 0.04), withYellowVest ? r1YellowVestMat : r1BlueChairMat);
-      back.position.set(0, 0.36, -0.09);
+      // Curved Black Loop Armrests on left & right
+      [-0.12, 0.12].forEach((ax) => {
+        const armPost = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.11, 0.025), r1GlossBlackMat);
+        armPost.position.set(ax, 0.25, -0.02);
+        cg.add(armPost);
+        const armTop = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.018, 0.15), r1GlossBlackMat);
+        armTop.position.set(ax, 0.30, 0.01);
+        cg.add(armTop);
+      });
+      // Royal-Blue Contoured Backrest + Black spine bar
+      const spine = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.18, 0.025), r1GlossBlackMat);
+      spine.position.set(0, 0.28, -0.11);
+      cg.add(spine);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.25, 0.038), r1BlueChairMat);
+      back.position.set(0, 0.35, -0.095);
       cg.add(back);
+      // Optional Folded Neon-Yellow Safety Vest resting on the seat cushion (for PC desk chair)
+      if (withYellowVest) {
+        const vest = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.032, 0.12), r1YellowVestMat);
+        vest.position.set(0.01, 0.232, 0.01);
+        vest.rotation.y = 0.25;
+        cg.add(vest);
+      }
       dcComplexGroup.add(cg);
     };
-    // Blue swivel chair 1: at PC desk with yellow safety vest
-    addR1BlueSwivelChair(8.18, 12.28, -Math.PI / 2, true);
-    // Blue swivel chair 2: in front of the black coffee table
-    addR1BlueSwivelChair(7.76, 12.92, Math.PI, false);
+    // Blue swivel chair 1: at PC desk with folded neon-yellow safety vest on seat
+    addR1BlueSwivelChair(8.14, 12.34, Math.PI / 2, true);
+    // Blue swivel chair 2: in front of the black slatted coffee table
+    addR1BlueSwivelChair(7.92, 12.68, -0.35, false);
 
     // -------------------------------------------------------------------------
     // 3. TAMPILAN KANAN (+Z WALL AT Z = 13.60, BORDERING ROOM 4 CONTROL ROOM)
-    //    - Open aluminum-framed glass doorway (X: 8.06..8.44) with black threshold step looking into Room 4
-    //    - Black 3-tier low storage cabinet / credenza in center-right (X = 7.82, Z = 13.44)
-    //    - 3-panel dark-tinted glass window with silver aluminum frame on right (X = 7.46, Y = 1.48, Z = 13.51)
+    //    - Open aluminum-framed glass doorway (X: 8.06..8.44) with raised dark threshold step,
+    //      "WELCOME" doormat, pair of black shoes, and clear sightline into Room 4 (Control Room)
+    //    - Black 3-tier low storage cabinet / credenza in center-right (X = 7.78, Z = 13.44)
+    //    - 3-panel dark-tinted glass window with silver aluminum frame on right (X = 7.42, Y = 1.48, Z = 13.51)
     // -------------------------------------------------------------------------
-    // Silver Aluminum Door Frame around open doorway to Room 4 (X: 8.06..8.44, Z = 13.60)
-    const r1DoorHeader = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.18), r1SilverMetalMat);
-    r1DoorHeader.position.set(8.25, 0.68 + 1.28, 13.60);
+    const r1AnodizedFrameMat = new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.32, metalness: 0.72 });
+    const r1DoorHeader = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.18), r1AnodizedFrameMat);
+    r1DoorHeader.position.set(8.25, 0.68 + 1.30, 13.60);
     dcComplexGroup.add(r1DoorHeader);
     [8.06, 8.44].forEach((jx) => {
-      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.28, 0.18), r1SilverMetalMat);
-      jamb.position.set(jx, 0.68 + 0.64, 13.60);
+      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.30, 0.18), r1AnodizedFrameMat);
+      jamb.position.set(jx, 0.68 + 0.65, 13.60);
       dcComplexGroup.add(jamb);
     });
-    // Black Threshold Step & Mat at the Doorway
-    const r1DoorStep = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.22), r1GlossBlackMat);
-    r1DoorStep.position.set(8.25, 0.68 + 0.02, 13.54);
+    // Raised Dark Marble Threshold Step & "WELCOME" Doormat at the Doorway
+    const r1DoorStep = new THREE.Mesh(
+      new THREE.BoxGeometry(0.38, 0.06, 0.20),
+      new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.35 })
+    );
+    r1DoorStep.position.set(8.25, 0.68 + 0.03, 13.58);
     dcComplexGroup.add(r1DoorStep);
-    // Open Aluminum-Framed Glass Door Leaf swung open at X = 8.42, Z: 13.26..13.58
-    const r1OpenDoorLeaf = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.22, 0.34), r1SilverMetalMat);
-    r1OpenDoorLeaf.position.set(8.41, 0.68 + 0.61, 13.42);
-    dcComplexGroup.add(r1OpenDoorLeaf);
+    const r1WelcomeMat = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.008, 0.16),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 })
+    );
+    r1WelcomeMat.position.set(8.25, 0.68 + 0.004, 13.42);
+    dcComplexGroup.add(r1WelcomeMat);
+    // Pair of black shoes on the doorway threshold step (matching Tampilan-Kanan.jpg)
+    [-0.03, 0.03].forEach((sx) => {
+      const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 0.065), r1GlossBlackMat);
+      shoe.position.set(8.18 + sx, 0.68 + 0.072, 13.56);
+      dcComplexGroup.add(shoe);
+    });
 
-    // Black 3-Tier Low Storage Cabinet / Credenza against +Z wall (X = 7.82, Z = 13.44)
-    const r1BlackCabinet = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.56, 0.18), r1GlossBlackMat);
-    r1BlackCabinet.position.set(7.82, 0.68 + 0.28, 13.44);
+    // Open Aluminum-Framed Dark Glass Door Leaf swung open on the right jamb (X = 8.09, Z: 13.26..13.58)
+    const r1DoorLeafGroup = new THREE.Group();
+    r1DoorLeafGroup.position.set(8.09, 0.68 + 0.64, 13.42);
+    r1DoorLeafGroup.rotation.y = -0.18;
+    const r1DoorFrameMesh = new THREE.Mesh(new THREE.BoxGeometry(0.03, 1.26, 0.34), r1SilverMetalMat);
+    r1DoorLeafGroup.add(r1DoorFrameMesh);
+    const r1DoorGlassMesh = new THREE.Mesh(new THREE.BoxGeometry(0.034, 1.16, 0.26), r1DarkWindowMat);
+    r1DoorLeafGroup.add(r1DoorGlassMesh);
+    const r1DoorSignSticker = new THREE.Mesh(
+      new THREE.BoxGeometry(0.038, 0.14, 0.09),
+      new THREE.MeshBasicMaterial({ color: 0xf8fafc })
+    );
+    r1DoorSignSticker.position.set(0, 0.12, 0.02);
+    r1DoorLeafGroup.add(r1DoorSignSticker);
+    dcComplexGroup.add(r1DoorLeafGroup);
+
+    // Interior Sightline Props inside Room 4 visible through the open doorway (matching Tampilan-Kanan.jpg):
+    // Tiled floor patch (#C9B79C), operator desk with cardboard box, black curtain/rack, and rear doorway with blue "TOILET" plaque
+    const r4VisibleFloor = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 1.25), r1CreamTileMat);
+    r4VisibleFloor.position.set(8.22, 0.71, 14.32);
+    dcComplexGroup.add(r4VisibleFloor);
+    const r4VisibleDesk = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.34, 0.24), r1GlossBlackMat);
+    r4VisibleDesk.position.set(8.12, 0.68 + 0.20, 14.42);
+    dcComplexGroup.add(r4VisibleDesk);
+    const r4DeskTop = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.025, 0.26), r1BrownWoodMat);
+    r4DeskTop.position.set(8.12, 0.68 + 0.38, 14.42);
+    dcComplexGroup.add(r4DeskTop);
+    const r4BluePlaque = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.045, 0.015),
+      new THREE.MeshBasicMaterial({ color: 0x0284c7 })
+    );
+    r4BluePlaque.position.set(8.34, 1.62, 14.88);
+    dcComplexGroup.add(r4BluePlaque);
+
+    // Light switches on +Z wall to the left of the open doorway (X = 8.49, Y = 1.34, Z = 13.51)
+    const r1WallSwitch = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.015), partitionWallMat);
+    r1WallSwitch.position.set(8.49, 1.34, 13.51);
+    dcComplexGroup.add(r1WallSwitch);
+
+    // Black 3-Tier Low Storage Cabinet / Credenza against +Z wall (X = 7.78, Z = 13.43)
+    const r1BlackCabinet = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.56, 0.18), r1GlossBlackMat);
+    r1BlackCabinet.position.set(7.78, 0.68 + 0.28, 13.43);
     r1BlackCabinet.castShadow = true;
     markR1Interactable(r1BlackCabinet);
     dcComplexGroup.add(r1BlackCabinet);
-    // Shelf divider lines on the black 3-tier cabinet
-    [0.18, 0.36].forEach((sy) => {
-      const shelfLine = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.015, 0.19), r1SilverMetalMat);
-      shelfLine.position.set(7.82, 0.68 + sy, 13.44);
+    [0.18, 0.37].forEach((sy) => {
+      const shelfLine = new THREE.Mesh(new THREE.BoxGeometry(0.385, 0.012, 0.185), r1DarkSlattedMat);
+      shelfLine.position.set(7.78, 0.68 + sy, 13.43);
       dcComplexGroup.add(shelfLine);
     });
 
-    // 3-Panel Dark-Tinted Window with Silver Aluminum Frame on +Z wall (X = 7.46, Y = 1.46, Z = 13.50)
-    const r1WinFrame = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.58, 0.03), r1SilverMetalMat);
-    r1WinFrame.position.set(7.46, 1.46, 13.50);
+    // 3-Panel Dark-Tinted Window with Silver Aluminum Frame on +Z wall (X = 7.42, Y = 1.48, Z = 13.50)
+    const r1WinFrame = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.60, 0.03), r1SilverMetalMat);
+    r1WinFrame.position.set(7.42, 1.48, 13.50);
     dcComplexGroup.add(r1WinFrame);
-    [-0.10, 0.0, 0.10].forEach((wx) => {
-      const pane = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.52, 0.036), r1DarkWindowMat);
-      pane.position.set(7.46 + wx, 1.46, 13.50);
+    [-0.095, 0.0, 0.095].forEach((wx) => {
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.54, 0.036), r1DarkWindowMat);
+      pane.position.set(7.42 + wx, 1.48, 13.50);
       dcComplexGroup.add(pane);
     });
 
     // -------------------------------------------------------------------------
     // 4. TAMPILAN BELAKANG (-X SIDE AT X = 7.25 & HALLWAY X: 5.80..7.25)
-    //    - 4-Seater Green & Teal Metallic Airport Waiting Bench against -X partition wall (Z: 12.14..12.86)
+    //    - 4-Seater Green & Teal Metallic Airport Waiting Bench against -X partition wall (Z: 12.14..12.88)
+    //      with curved chrome armrests/legs, black 'X' tape mark, and black bag under first seat
     //    - Open Cream-Tiled Hallway (Z: 12.96..13.56, X: 5.80..7.25)
-    //    - Freestanding Black Dual-Pillar Standing TV / Digital Totem in hallway (X = 6.88, Z = 13.34)
+    //    - Freestanding Black Dual-Pillar Standing TV Totem + Beige Electrical Box in hallway
     //    - Red APAR Fire Extinguisher + Red Inverted Triangle Sign on far corridor wall (X = 5.92, Z = 13.18)
     // -------------------------------------------------------------------------
-    // 4-Seater Green & Teal Airport Waiting Bench against -X wall (X = 7.42, Z = 12.50)
-    const r1BenchBar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.72), r1SilverMetalMat);
-    r1BenchBar.position.set(7.42, 0.68 + 0.18, 12.50);
-    dcComplexGroup.add(r1BenchBar);
+    const r1BenchGroup = new THREE.Group();
+    r1BenchGroup.position.set(7.43, 0.68, 12.52);
+    // Horizontal steel support beam under seats
+    const r1BenchBar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.035, 0.74), r1GlossBlackMat);
+    r1BenchBar.position.set(0, 0.16, 0);
+    r1BenchGroup.add(r1BenchBar);
+    // 4 Alternating Green / Teal-Blue / Green / Teal-Blue Perforated Contoured Seats
     [-0.27, -0.09, 0.09, 0.27].forEach((bz, idx) => {
-      const seatMat = idx === 0 || idx === 3 ? r1GreenSeatMat : r1TealSeatMat;
-      const bSeat = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.15), seatMat);
-      bSeat.position.set(7.44, 0.68 + 0.21, 12.50 + bz);
+      const seatMat = idx % 2 === 0 ? r1GreenSeatMat : r1TealSeatMat;
+      const bSeat = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.03, 0.16), seatMat);
+      bSeat.position.set(0.02, 0.19, bz);
       bSeat.castShadow = true;
       markR1Interactable(bSeat);
-      dcComplexGroup.add(bSeat);
-      const bBack = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.22, 0.15), seatMat);
-      bBack.position.set(7.35, 0.68 + 0.32, 12.50 + bz);
-      dcComplexGroup.add(bBack);
+      r1BenchGroup.add(bSeat);
+      const bBack = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.23, 0.16), seatMat);
+      bBack.position.set(-0.07, 0.30, bz);
+      bBack.rotation.z = 0.14;
+      r1BenchGroup.add(bBack);
+      // Black 'X' tape mark on the 2nd seat (matching Tampilan-Belakang.jpg & Tampilan-kiri.jpg)
+      if (idx === 1) {
+        const xTape1 = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.004, 0.014), r1GlossBlackMat);
+        xTape1.position.set(0.03, 0.207, bz);
+        xTape1.rotation.y = 0.78;
+        r1BenchGroup.add(xTape1);
+        const xTape2 = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.004, 0.014), r1GlossBlackMat);
+        xTape2.position.set(0.03, 0.207, bz);
+        xTape2.rotation.y = -0.78;
+        r1BenchGroup.add(xTape2);
+      }
     });
-    [-0.33, 0.33].forEach((lz) => {
-      const bLeg = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.20, 0.03), r1SilverMetalMat);
-      bLeg.position.set(7.42, 0.68 + 0.10, 12.50 + lz);
-      dcComplexGroup.add(bLeg);
+    // Chrome-Silver Curved Cast Aluminum Side Armrests & Splayed Legs at both ends
+    [-0.36, 0.36].forEach((lz) => {
+      const armLoop = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.022), r1SilverMetalMat);
+      armLoop.position.set(0.01, 0.25, lz);
+      r1BenchGroup.add(armLoop);
+      const frontLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.010, 0.20, 10), r1SilverMetalMat);
+      frontLeg.position.set(0.08, 0.09, lz);
+      frontLeg.rotation.z = -0.32;
+      r1BenchGroup.add(frontLeg);
+      const backLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.010, 0.20, 10), r1SilverMetalMat);
+      backLeg.position.set(-0.06, 0.09, lz);
+      backLeg.rotation.z = 0.28;
+      r1BenchGroup.add(backLeg);
     });
+    // Black duffel bag tucked under the first green seat (Z = +0.26)
+    const r1UnderBenchBag = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.09, 0.16), r1GlossBlackMat);
+    r1UnderBenchBag.position.set(0.01, 0.05, 0.26);
+    r1BenchGroup.add(r1UnderBenchBag);
+    dcComplexGroup.add(r1BenchGroup);
 
     // Bottom-Center-Right Hallway & Enclosure (X: +5.8 to +7.25, Z: +12.0 to +13.6)
     addDcFloor(6.52, 12.8, 1.45, 1.6, r1CreamTileMat);
-    addDcWall(6.5, 12.55, 1.4, 0.16);
-    addDcWall(5.8, 12.8, 0.20, 1.6);
+    addDcWall(6.5, 12.92, 1.45, 0.14); // Hallway right wall (lining up with Room 1 -X partition wall)
+    addDcWall(5.8, 12.8, 0.20, 1.6);   // Far corridor wall (with APAR)
     addDcWall(6.52, 12.0, 1.45, 0.22);
 
-    // Freestanding Black Dual-Pillar Standing TV / Digital Totem in Hallway (X = 6.92, Z = 13.34)
-    const r1TotemBase = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.03, 0.18), r1GlossBlackMat);
-    r1TotemBase.position.set(6.92, 0.68 + 0.015, 13.34);
-    dcComplexGroup.add(r1TotemBase);
-    [-0.06, 0.06].forEach((px) => {
-      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.78, 0.025), r1GlossBlackMat);
-      pillar.position.set(6.92 + px, 0.68 + 0.39, 13.34);
-      dcComplexGroup.add(pillar);
+    // Freestanding Black Dual-Pillar Standing TV / Digital Totem in Hallway (X = 6.76, Z = 13.42)
+    const r1TotemGroup = new THREE.Group();
+    r1TotemGroup.position.set(6.76, 0.68, 13.42);
+    [-0.08, 0.08].forEach((px) => {
+      // V-base foot
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 0.22), r1GlossBlackMat);
+      foot.position.set(px, 0.015, 0);
+      r1TotemGroup.add(foot);
+      // Vertical black steel column
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.86, 0.028), r1GlossBlackMat);
+      pillar.position.set(px, 0.44, 0.02);
+      r1TotemGroup.add(pillar);
     });
-    const r1TotemScreen = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.32, 0.035), r1GlossBlackMat);
-    r1TotemScreen.position.set(6.92, 0.68 + 0.68, 13.32);
-    dcComplexGroup.add(r1TotemScreen);
+    const r1TotemScreen = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.34, 0.035), r1GlossBlackMat);
+    r1TotemScreen.position.set(0, 0.72, -0.01);
+    r1TotemGroup.add(r1TotemScreen);
+    dcComplexGroup.add(r1TotemGroup);
 
-    // Red APAR Fire Extinguisher Cylinder + Inverted Red Triangle Sign on Far Hallway Wall (X = 5.93, Z = 13.18)
-    const r1AparCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.28, 12), r1RedAparMat);
-    r1AparCylinder.position.set(5.94, 0.68 + 0.42, 13.18);
+    // Beige Electrical Distribution Panel Box on Hallway Left Wall behind TV Totem (X = 6.62, Z = 13.50)
+    const r1ElecBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.18, 0.24, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0xd6d3c4, roughness: 0.5 })
+    );
+    r1ElecBox.position.set(6.62, 0.68 + 0.76, 13.50);
+    dcComplexGroup.add(r1ElecBox);
+
+    // Red APAR Fire Extinguisher Cylinder + Hose + Inverted Red Triangle Sign on Far Hallway Wall (X = 5.93, Z = 13.20)
+    const r1AparCylinder = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.24, 14), r1RedAparMat);
+    r1AparCylinder.position.set(5.94, 0.68 + 0.44, 13.20);
     dcComplexGroup.add(r1AparCylinder);
-    const r1AparSign = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.12, 3), r1RedAparMat);
+    const r1AparValve = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.022, 0.05, 10), r1SilverMetalMat);
+    r1AparValve.position.set(5.94, 0.68 + 0.58, 13.20);
+    dcComplexGroup.add(r1AparValve);
+    const r1AparSign = new THREE.Mesh(new THREE.ConeGeometry(0.072, 0.11, 3), r1RedAparMat);
     r1AparSign.rotation.x = Math.PI;
-    r1AparSign.position.set(5.93, 0.68 + 0.78, 13.18);
+    r1AparSign.position.set(5.93, 0.68 + 0.74, 13.20);
     dcComplexGroup.add(r1AparSign);
 
     addRoomNumberBadge('1', 1, 7.98, 12.80, 0.92);
@@ -2418,11 +3016,289 @@ export class AirportSceneManager {
       9.4,
       1.2,
       36,
-      'BHS, OPERASIONAL & CONCOURSE TIMUR-BARAT'
+      'JBSS 1.3 (TIMUR) & JBSS 1.7 (BARAT) • MDF-SS R. KONTROL'
     );
     l1EksPlaque.position.set(24.0, 0.64, -7.8);
     lantai1Group.add(l1EksPlaque);
     this.lantai1Meshes.push(l1EksPlaque);
+
+    // =========================================================================
+    // 1H. BLOK DIAGRAM SISTEM PUBLIC ADDRESS — TERMINAL EKSISTING LANTAI 1
+    //     (Sesuai WIKA-ABD-BSH-ES-TE-0001C-00, 0002-00 & 0102-00)
+    //     - Head-End R. Kontrol Lt. 1 (X = 8.4, Z = 15.6):
+    //       Rack 42U Amplifier (Hub Switch, NCO Praesidio, Prasensa Controller,
+    //       9× Prasensa Amp 600W 4Ch, Master Power Supply, Music Player) +
+    //       Rack 05 TE (3× Barix Dante, JBRD 1.6 TE, JBRD 2.3 OTB 2×24 Core FO OS2) + MDF-SS
+    //     - JBSS 1.3 (Timur, X = 33.5, Z = 5.4): 142 Ceiling 6W, 11 Column 15W, 3 Wall 6W, 3 AVC
+    //       Zones: Z3.1.1 (Public), Z3.1.2 (Public), Z3.1.3 (Transit), Z3.1.4 (Emergency), Z3.1.5 (Emergency)
+    //     - JBSS 1.7 (Barat, X = 8.8, Z = 5.4): 200 Ceiling 6W, 20 Column 15W, 3 Wall 6W, 6 AVC
+    //       Zones: Z7.1.1 (Public), Z7.1.2 (Public), Z7.1.3 (Emergency), Z7.1.4 (Emergency), Z7.1.5 (Emergency)
+    // =========================================================================
+    const paBlockLt1Group = new THREE.Group();
+
+    // 1. Procedural Front Panel Texture for 42U Free Standing Rack Amplifier (WIKA-ABD-BSH-ES-TE-0002-00)
+    const rack42uCanvas = document.createElement('canvas');
+    rack42uCanvas.width = 256;
+    rack42uCanvas.height = 512;
+    const r42Ctx = rack42uCanvas.getContext('2d')!;
+    r42Ctx.fillStyle = '#0f172a';
+    r42Ctx.fillRect(0, 0, 256, 512);
+    r42Ctx.strokeStyle = '#38bdf8';
+    r42Ctx.lineWidth = 6;
+    r42Ctx.strokeRect(4, 4, 248, 504);
+    const rackUnits = [
+      { y: 18, h: 24, label: 'HUB SWITCH 24-PORT CAT6', col: '#0284c7' },
+      { y: 48, h: 26, label: 'NCO PRAESIDIO CONTROLLER', col: '#0ea5e9' },
+      { y: 80, h: 26, label: 'PRASENSA NET CONTROLLER', col: '#10b981' },
+      { y: 114, h: 28, label: 'AMP 1: JBSS 2.4 PA (600W 4CH)', col: '#1e293b' },
+      { y: 146, h: 28, label: 'AMP 2: JBSS 2.4 DAR (600W 4CH)', col: '#7f1d1d' },
+      { y: 178, h: 28, label: 'AMP 3: JBSS 2.2 PA (600W 4CH)', col: '#1e293b' },
+      { y: 210, h: 28, label: 'AMP 4: JBSS 2.2 DAR (600W 4CH)', col: '#7f1d1d' },
+      { y: 242, h: 28, label: 'AMP 5: JBSS 1.7 PA (600W 4CH)', col: '#1e293b' },
+      { y: 274, h: 28, label: 'AMP 6: JBSS 1.7 DAR (600W 4CH)', col: '#7f1d1d' },
+      { y: 306, h: 28, label: 'AMP 7: JBSS 1.3 PA (600W 4CH)', col: '#1e293b' },
+      { y: 338, h: 28, label: 'AMP 8: JBSS 1.3 DAR (600W 4CH)', col: '#7f1d1d' },
+      { y: 370, h: 28, label: 'AMP 9: JBSS B1.2 DAR (600W 4CH)', col: '#7f1d1d' },
+      { y: 406, h: 32, label: 'PRASENSA MASTER PSU 48V', col: '#047857' },
+      { y: 446, h: 28, label: 'BGM MUSIC PLAYER PLENA', col: '#4f46e5' },
+    ];
+    rackUnits.forEach((ru) => {
+      r42Ctx.fillStyle = ru.col;
+      r42Ctx.fillRect(14, ru.y, 228, ru.h);
+      r42Ctx.strokeStyle = '#64748b';
+      r42Ctx.lineWidth = 2;
+      r42Ctx.strokeRect(14, ru.y, 228, ru.h);
+      r42Ctx.fillStyle = '#22c55e';
+      r42Ctx.fillRect(20, ru.y + 8, 6, 6);
+      r42Ctx.fillStyle = '#f8fafc';
+      r42Ctx.font = 'bold 11px monospace';
+      r42Ctx.fillText(ru.label, 32, ru.y + ru.h * 0.68);
+    });
+    const rack42uTex = new THREE.CanvasTexture(rack42uCanvas);
+    rack42uTex.colorSpace = THREE.SRGBColorSpace;
+    const rack42uFrontMat = new THREE.MeshBasicMaterial({ map: rack42uTex });
+    const rackBodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.7 });
+    const mdfBodyMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.32, metalness: 0.55 });
+    const jbssPublicMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.55 });
+    const jbssEmergMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3, metalness: 0.55 });
+
+    // 42U Free Standing Rack Amplifier in Control Room (X = 8.35, Z = 15.65)
+    const rack42uMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 1.95, 0.62),
+      [rackBodyMat, rackBodyMat, rackBodyMat, rackBodyMat, rack42uFrontMat, rack42uFrontMat]
+    );
+    rack42uMesh.position.set(8.35, 0.68 + 0.975, 15.65);
+    rack42uMesh.castShadow = true;
+    paBlockLt1Group.add(rack42uMesh);
+
+    // MDF-SS (Main Distribution Frame Sound System) Cabinet beside 42U Rack (X = 7.55, Z = 15.65)
+    const mdfSsMesh = new THREE.Mesh(new THREE.BoxGeometry(0.54, 1.65, 0.45), mdfBodyMat);
+    mdfSsMesh.position.set(7.55, 0.68 + 0.825, 15.65);
+    mdfSsMesh.castShadow = true;
+    paBlockLt1Group.add(mdfSsMesh);
+
+    // Head-End Plaque above R. Kontrol Lt. 1 (42U Rack + MDF-SS + 3x Barix Dante + FO OTB)
+    const mdfHeadPlaque = this.createPlaqueMesh(
+      'RACK 42U PRASENSA & MDF-SS (R. KONTROL LT.1)',
+      '#0284c7',
+      '#ffffff',
+      6.8,
+      1.05,
+      30,
+      '9× AMP 600W 4CH • 3× BARIX DANTE • FO 2×24C OS2'
+    );
+    mdfHeadPlaque.position.set(8.0, 2.85, 15.65);
+    paBlockLt1Group.add(mdfHeadPlaque);
+
+    // Helper to create 3D Cable Tray / Conduit Line between two 3D points on Lantai 1
+    const addPaCableLine = (
+      targetGroup: THREE.Group,
+      pts: [number, number, number][],
+      colorHex: number,
+      radius: number = 0.085
+    ) => {
+      const vecs = pts.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+      const curve = new THREE.CatmullRomCurve3(vecs, false, 'catmullrom', 0.08);
+      const tubeGeo = new THREE.TubeGeometry(curve, Math.max(12, vecs.length * 8), radius, 8, false);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        emissive: colorHex,
+        emissiveIntensity: 0.35,
+        roughness: 0.3,
+        metalness: 0.5,
+      });
+      const mesh = new THREE.Mesh(tubeGeo, tubeMat);
+      targetGroup.add(mesh);
+      return mesh;
+    };
+
+    // Main Feeder Cable Tray (NYMHY 3x2.5mm²) from MDF-SS (X=7.55, Z=15.65) -> JBSS 1.7 (X=8.8, Z=5.4) -> JBSS 1.3 (X=33.5, Z=5.4)
+    addPaCableLine(
+      paBlockLt1Group,
+      [
+        [7.55, 2.15, 15.65],
+        [8.8, 2.15, 12.0],
+        [8.8, 2.15, 5.4],
+        [21.0, 2.15, 5.4],
+        [33.5, 2.15, 5.4],
+      ],
+      0xf59e0b,
+      0.11
+    );
+
+    // Helper to build a 3D JBSS Junction Box Cabinet + LED + Plaque
+    const addJbssCabinet = (
+      targetGroup: THREE.Group,
+      x: number,
+      yBase: number,
+      z: number,
+      title: string,
+      subtitle: string,
+      badgeBg: string
+    ) => {
+      const jbGroup = new THREE.Group();
+      jbGroup.position.set(x, yBase, z);
+
+      const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.35, 0.55), mdfBodyMat);
+      pedestal.position.y = 0.675;
+      pedestal.castShadow = true;
+      jbGroup.add(pedestal);
+
+      const doorPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 1.15, 0.58),
+        new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.35, metalness: 0.3 })
+      );
+      doorPanel.position.y = 0.68;
+      jbGroup.add(doorPanel);
+
+      const ledBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 14, 14),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e })
+      );
+      ledBeacon.position.y = 1.48;
+      jbGroup.add(ledBeacon);
+
+      const plaque = this.createPlaqueMesh(title, badgeBg, '#ffffff', 6.4, 1.0, 30, subtitle);
+      plaque.position.set(0, 2.15, 0);
+      jbGroup.add(plaque);
+
+      targetGroup.add(jbGroup);
+    };
+
+    // --- JBSS 1.3 (LANTAI 1 TIMUR: X = 33.5, Z = 5.4) ---
+    addJbssCabinet(
+      paBlockLt1Group,
+      33.5,
+      0.62,
+      5.4,
+      'JBSS 1.3 (JBSS-1.3.Z1.2) • LT. 1',
+      '142 CEILING 6W • 11 COLUMN 15W • 3 WALL 6W • 3 AVC',
+      '#0284c7'
+    );
+
+    // 5 Zone Conduit Branches from JBSS 1.3 (Z3.1.1 .. Z3.1.5)
+    const jbss13Zones: {
+      code: string;
+      spec: string;
+      x: number;
+      z: number;
+      isEmergency: boolean;
+    }[] = [
+      { code: 'JBSS Z3.1.1 (PUBLIC)', spec: '16× Ceil 6W • 11× Col 15W • 3× Wall 6W', x: 46.5, z: 6.2, isEmergency: false },
+      { code: 'JBSS Z3.1.2 (PUBLIC)', spec: '36× Ceiling Speaker 6W (216W)', x: 38.5, z: 8.2, isEmergency: false },
+      { code: 'JBSS Z3.1.3 (TRANSIT)', spec: '27× Ceiling Speaker 6W (162W)', x: 30.5, z: 9.8, isEmergency: false },
+      { code: 'JBSS Z3.1.4 (EMERGENCY)', spec: '25× Ceil 6W • Office, R.ME & Tangga', x: 39.5, z: 0.4, isEmergency: true },
+      { code: 'JBSS Z3.1.5 (EMERGENCY)', spec: '38× Ceil 6W • Kantin, Toilet, AOCC & FLOPS', x: 27.5, z: 0.6, isEmergency: true },
+    ];
+    jbss13Zones.forEach((zn) => {
+      addPaCableLine(
+        paBlockLt1Group,
+        [
+          [33.5, 1.85, 5.4],
+          [(33.5 + zn.x) * 0.5, 1.85, (5.4 + zn.z) * 0.5],
+          [zn.x, 1.85, zn.z],
+        ],
+        zn.isEmergency ? 0xef4444 : 0x38bdf8,
+        0.065
+      );
+      const nodeBox = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.35, 16),
+        zn.isEmergency ? jbssEmergMat : jbssPublicMat
+      );
+      nodeBox.position.set(zn.x, 1.85, zn.z);
+      paBlockLt1Group.add(nodeBox);
+
+      const zPlaque = this.createPlaqueMesh(
+        zn.code,
+        zn.isEmergency ? '#dc2626' : '#0369a1',
+        '#ffffff',
+        4.6,
+        0.78,
+        28,
+        zn.spec
+      );
+      zPlaque.position.set(zn.x, 2.38, zn.z);
+      paBlockLt1Group.add(zPlaque);
+    });
+
+    // --- JBSS 1.7 (LANTAI 1 BARAT: X = 8.8, Z = 5.4) ---
+    addJbssCabinet(
+      paBlockLt1Group,
+      8.8,
+      0.62,
+      5.4,
+      'JBSS 1.7 (JBSS-1.7.Z1.2) • LT. 1',
+      '200 CEILING 6W • 20 COLUMN 15W • 3 WALL 6W • 6 AVC',
+      '#0284c7'
+    );
+
+    // 5 Zone Conduit Branches from JBSS 1.7 (Z7.1.1 .. Z7.1.5)
+    const jbss17Zones: {
+      code: string;
+      spec: string;
+      x: number;
+      z: number;
+      isEmergency: boolean;
+    }[] = [
+      { code: 'JBSS Z7.1.1 (PUBLIC DOM)', spec: '40× Ceiling Speaker 6W (240W)', x: 17.5, z: 7.8, isEmergency: false },
+      { code: 'JBSS Z7.1.2 (PUBLIC DOM)', spec: '42× Ceiling 6W • 8× Column 15W', x: 2.2, z: 7.8, isEmergency: false },
+      { code: 'JBSS Z7.1.3 (EMERGENCY)', spec: '89× Ceiling Speaker 6W (534W)', x: -6.5, z: 8.5, isEmergency: true },
+      { code: 'JBSS Z7.1.4 (EMERGENCY)', spec: '28× Ceiling Speaker 6W (168W)', x: 4.8, z: -0.8, isEmergency: true },
+      { code: 'JBSS Z7.1.5 (EMERGENCY)', spec: '13× Ceil 6W • 12× Col 15W • 3× Wall 6W', x: -8.5, z: -0.6, isEmergency: true },
+    ];
+    jbss17Zones.forEach((zn) => {
+      addPaCableLine(
+        paBlockLt1Group,
+        [
+          [8.8, 1.85, 5.4],
+          [(8.8 + zn.x) * 0.5, 1.85, (5.4 + zn.z) * 0.5],
+          [zn.x, 1.85, zn.z],
+        ],
+        zn.isEmergency ? 0xef4444 : 0x38bdf8,
+        0.065
+      );
+      const nodeBox = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.35, 16),
+        zn.isEmergency ? jbssEmergMat : jbssPublicMat
+      );
+      nodeBox.position.set(zn.x, 1.85, zn.z);
+      paBlockLt1Group.add(nodeBox);
+
+      const zPlaque = this.createPlaqueMesh(
+        zn.code,
+        zn.isEmergency ? '#dc2626' : '#0369a1',
+        '#ffffff',
+        4.6,
+        0.78,
+        28,
+        zn.spec
+      );
+      zPlaque.position.set(zn.x, 2.38, zn.z);
+      paBlockLt1Group.add(zPlaque);
+    });
+
+    lantai1Group.add(paBlockLt1Group);
+    this.lantai1Meshes.push(paBlockLt1Group);
 
     terminalGroup.add(lantai1Group);
     this.lantai1Meshes.push(lantai1Group);
@@ -2483,14 +3359,571 @@ export class AirportSceneManager {
       }
     });
 
-    // Lantai 3 Interior Slab (registered in upperRoofMeshes so Lantai 2 Mockup is visible below)
+    // Lantai 3 Interior Base Slab (visible in overview and Mockup Lantai 3, hidden in Lantai 1 & Lantai 2 cutaway)
     const lt3InteriorSlab = new THREE.Mesh(
-      new THREE.BoxGeometry(utamaW, 0.35, utamaD),
-      roofShellMat
+      new THREE.BoxGeometry(utamaW, 0.24, utamaD),
+      slabMat
     );
-    lt3InteriorSlab.position.set(utamaX, 9.6, utamaZ);
+    lt3InteriorSlab.position.set(utamaX, 9.48, utamaZ);
+    lt3InteriorSlab.receiveShadow = true;
     utamaGroup.add(lt3InteriorSlab);
-    this.upperRoofMeshes.push(lt3InteriorSlab);
+    this.lantai3Meshes.push(lt3InteriorSlab);
+
+    // =========================================================================
+    // LANTAI 3 (Y = 9.60m) ARCHITECTURAL MOCKUP — TERMINAL UTAMA
+    // High-Precision 1:1 3D Reconstruction of Reference Image:
+    // https://i.ibb.co.com/twXSgvBK/Gemini-Generated-Image-yuv3ynyuv3ynyuv3.jpg
+    // Camera orientation in Mockup Lantai 3 (looking from North/Front -Z towards +Z):
+    //  - Left on screen  = +X (X: +56.8 -> +24.0)
+    //  - Right on screen = -X (X: +24.0 -> -8.8)
+    //  - Bottom (Front)  = -Z (Z: -44.2 -> -32.0) — 5 White-Floored Stepped Protruding Bays
+    //  - Center Hall     = Z: -33.2 -> -14.5 — Glossy Floor + 3 Racetrack Void Islands + 8 Square Columns
+    //  - Left & Right    = X: +48.5..+54.5 & -6.5..-0.5 — Restrooms, Waiting Booths & Offices
+    //  - Top (Rear)      = +Z (Z: -16.0 -> -6.8) — Twin Curved Dark Foyers, Escalator Conservatory & Long Skywalks
+    // =========================================================================
+    const lantai3Group = new THREE.Group();
+    const lt3FloorY = 9.60;
+    const lt3WallH = 1.55;
+
+    const lt3GlossyFloorMat = new THREE.MeshPhysicalMaterial({
+      map: this.createLt3MainHallFloorTexture(),
+      roughness: 0.18,
+      metalness: 0.10,
+      clearcoat: 0.48,
+      clearcoatRoughness: 0.14,
+    });
+    const lt3BrightWhiteFloorMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.28,
+      metalness: 0.05,
+    });
+    const lt3VoidWellFloorMat = new THREE.MeshStandardMaterial({
+      color: 0xaba69e,
+      roughness: 0.55,
+      metalness: 0.08,
+    });
+    const lt3DarkFoyerFloorMat = new THREE.MeshStandardMaterial({
+      color: 0x4b525c,
+      roughness: 0.42,
+      metalness: 0.12,
+    });
+    const lt3CreamWallMat = new THREE.MeshStandardMaterial({
+      color: 0xf5ebd0,
+      roughness: 0.34,
+      metalness: 0.06,
+    });
+    const lt3PureWhiteWallMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.26,
+      metalness: 0.08,
+    });
+    const lt3WallCapMat = new THREE.MeshStandardMaterial({
+      color: 0xe6dac0,
+      roughness: 0.36,
+      metalness: 0.12,
+    });
+    const lt3DarkPlinthMat = new THREE.MeshStandardMaterial({
+      color: 0x6b645c,
+      roughness: 0.50,
+      metalness: 0.15,
+    });
+    const lt3WoodTrimMat = new THREE.MeshStandardMaterial({
+      color: 0x9c6638,
+      roughness: 0.42,
+      metalness: 0.10,
+    });
+    const lt3GlassPartitionMat = new THREE.MeshPhysicalMaterial({
+      color: 0xcbd5e1,
+      transmission: 0.72,
+      opacity: 0.42,
+      transparent: true,
+      roughness: 0.12,
+      metalness: 0.15,
+      depthWrite: false,
+    });
+    const lt3PlantGreenMat = new THREE.MeshStandardMaterial({
+      color: 0x15803d,
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+
+    const addLt3Floor = (
+      cx: number,
+      cz: number,
+      w: number,
+      d: number,
+      mat: THREE.Material,
+      yOffset: number = 0,
+      thickness: number = 0.14
+    ) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, thickness, d), mat);
+      m.position.set(cx, lt3FloorY + yOffset, cz);
+      m.receiveShadow = true;
+      lantai3Group.add(m);
+    };
+
+    const addLt3Wall = (
+      cx: number,
+      cz: number,
+      w: number,
+      d: number,
+      h: number = lt3WallH,
+      rotY: number = 0,
+      mat: THREE.Material = lt3CreamWallMat,
+      withCap: boolean = true
+    ) => {
+      const wg = new THREE.Group();
+      wg.position.set(cx, lt3FloorY + 0.07 + h / 2, cz);
+      wg.rotation.y = rotY;
+      const wm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      wm.castShadow = true;
+      wm.receiveShadow = true;
+      wg.add(wm);
+      if (withCap) {
+        const cm = new THREE.Mesh(
+          new THREE.BoxGeometry(w + 0.04, 0.07, d + 0.04),
+          mat === lt3PureWhiteWallMat ? lt3PureWhiteWallMat : lt3WallCapMat
+        );
+        cm.position.y = h / 2 + 0.035;
+        wg.add(cm);
+      }
+      lantai3Group.add(wg);
+    };
+
+    const addLt3SquareColumn = (cx: number, cz: number, size: number = 0.68, h: number = 1.48) => {
+      const cg = new THREE.Group();
+      cg.position.set(cx, lt3FloorY + 0.07, cz);
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(size + 0.06, 0.22, size + 0.06), lt3DarkPlinthMat);
+      plinth.position.y = 0.11;
+      cg.add(plinth);
+      const shaft = new THREE.Mesh(new THREE.BoxGeometry(size, h, size), lt3CreamWallMat);
+      shaft.position.y = h / 2;
+      shaft.castShadow = true;
+      shaft.receiveShadow = true;
+      cg.add(shaft);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(size + 0.06, 0.07, size + 0.06), lt3WallCapMat);
+      cap.position.y = h + 0.035;
+      cg.add(cap);
+      lantai3Group.add(cg);
+    };
+
+    // 1. MAIN GLOSSY HALL FLOOR (X: -6.2 to +54.2, Z: -34.0 to -12.2)
+    addLt3Floor(24.0, -23.1, 60.4, 21.8, lt3GlossyFloorMat, 0.02, 0.16);
+
+    // 2. THREE ICONIC CENTER RACETRACK / STADIUM VOID ISLANDS (Left X=39.6, Center X=24.0, Right X=8.4)
+    const buildLt3RacetrackVoidIsland = (cx: number, cz: number) => {
+      const straightHalf = 5.4; // straight segment half-length in Z -> total straight = 10.8m
+      const outerR = 2.25;      // total width = 4.5m, total length = 15.3m
+      const wallThick = 0.50;
+      const innerR = outerR - wallThick;
+      const parapetH = 1.28;
+
+      // Outer stadium shape in 2D (X, Y)
+      const stadiumShape = new THREE.Shape();
+      stadiumShape.absarc(0, straightHalf, outerR, 0, Math.PI, false);
+      stadiumShape.absarc(0, -straightHalf, outerR, Math.PI, Math.PI * 2, false);
+      stadiumShape.closePath();
+
+      // Inner stadium void hole
+      const holePath = new THREE.Path();
+      holePath.absarc(0, straightHalf, innerR, 0, Math.PI, false);
+      holePath.absarc(0, -straightHalf, innerR, Math.PI, Math.PI * 2, false);
+      holePath.closePath();
+      stadiumShape.holes.push(holePath);
+
+      // Dark base plinth ring around stadium perimeter
+      const plinthGeo = new THREE.ExtrudeGeometry(stadiumShape, {
+        depth: 0.24,
+        bevelEnabled: false,
+        curveSegments: 28,
+      });
+      plinthGeo.rotateX(-Math.PI / 2);
+      const plinthMesh = new THREE.Mesh(plinthGeo, lt3DarkPlinthMat);
+      plinthMesh.position.set(cx, lt3FloorY + 0.08, cz);
+      plinthMesh.castShadow = true;
+      plinthMesh.receiveShadow = true;
+      lantai3Group.add(plinthMesh);
+
+      // Smooth white parapet wall above plinth
+      const wallGeo = new THREE.ExtrudeGeometry(stadiumShape, {
+        depth: parapetH,
+        bevelEnabled: true,
+        bevelSegments: 3,
+        steps: 1,
+        bevelSize: 0.04,
+        bevelThickness: 0.04,
+        curveSegments: 28,
+      });
+      wallGeo.rotateX(-Math.PI / 2);
+      const wallMesh = new THREE.Mesh(wallGeo, lt3PureWhiteWallMat);
+      wallMesh.position.set(cx, lt3FloorY + 0.28, cz);
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
+      lantai3Group.add(wallMesh);
+
+      // Sunken interior floor well inside the stadium void
+      const wellShape = new THREE.Shape();
+      wellShape.absarc(0, straightHalf, innerR + 0.05, 0, Math.PI, false);
+      wellShape.absarc(0, -straightHalf, innerR + 0.05, Math.PI, Math.PI * 2, false);
+      wellShape.closePath();
+      const wellGeo = new THREE.ExtrudeGeometry(wellShape, { depth: 0.08, bevelEnabled: false, curveSegments: 24 });
+      wellGeo.rotateX(-Math.PI / 2);
+      const wellMesh = new THREE.Mesh(wellGeo, lt3VoidWellFloorMat);
+      wellMesh.position.set(cx, lt3FloorY + 0.06, cz);
+      wellMesh.receiveShadow = true;
+      lantai3Group.add(wellMesh);
+    };
+
+    buildLt3RacetrackVoidIsland(39.6, -23.8); // Left Racetrack Void Island
+    buildLt3RacetrackVoidIsland(24.0, -23.8); // Center Racetrack Void Island
+    buildLt3RacetrackVoidIsland(8.4, -23.8);  // Right Racetrack Void Island
+
+    // 3. SQUARE STRUCTURAL COLUMNS IN THE MAIN HALL (matching reference image)
+    [-30.5, -23.8, -16.8].forEach((cz) => {
+      addLt3SquareColumn(31.8, cz, 0.70, 1.48); // Left-Center column row
+      addLt3SquareColumn(16.2, cz, 0.70, 1.48); // Right-Center column row
+    });
+    addLt3SquareColumn(43.2, -31.8, 0.68, 1.48); // Outer bottom-left column
+    addLt3SquareColumn(4.8, -31.8, 0.68, 1.48);  // Outer bottom-right column
+    addLt3SquareColumn(31.5, -15.2, 0.68, 1.48); // Top-left foyer column
+    addLt3SquareColumn(16.5, -15.2, 0.68, 1.48); // Top-right foyer column
+
+    // 4. BOTTOM (FOREGROUND -Z) 5 WHITE-FLOORED STEPPED PROTRUDING ENTRANCE / BALCONY BAYS
+    // Connecting front main hall baseline wall (Z = -34.0) between the 5 bays
+    addLt3Wall(45.0, -34.0, 2.8, 0.30, lt3WallH); // Wall between Bay 1 & Bay 2
+    addLt3Wall(3.0, -34.0, 2.8, 0.30, lt3WallH);  // Wall between Bay 4 & Bay 5
+
+    // --- BAY 1: FAR-LEFT PROTRUDING WHITE BAY (X: +46.4 to +56.8, Z: -33.2 to -39.8) ---
+    addLt3Floor(51.6, -36.5, 10.4, 6.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Floor(47.8, -40.5, 2.8, 1.8, lt3BrightWhiteFloorMat, 0.05, 0.16); // Bottom-right stepped notch
+    addLt3Wall(51.6, -33.2, 10.4, 0.28, lt3WallH); // Top wall of Bay 1
+    addLt3Wall(56.8, -36.5, 0.30, 6.6, lt3WallH);  // Far-left outer wall of Bay 1
+    addLt3Wall(53.0, -39.8, 7.6, 0.30, lt3WallH);  // Bottom wall of Bay 1
+    addLt3Wall(47.8, -41.4, 2.8, 0.30, lt3WallH);  // Stepped notch bottom wall
+    addLt3Wall(49.2, -40.6, 0.28, 1.6, lt3WallH);  // Stepped notch inner wall
+    addLt3Wall(46.4, -37.3, 0.30, 8.2, lt3WallH, -0.06); // Right wall of Bay 1
+    addLt3Wall(46.2, -37.3, 0.08, 7.8, lt3WallH - 0.1, -0.06, lt3WoodTrimMat, false); // Warm wood exterior trim
+    // Small square shaft box in bottom-left corner of Bay 1
+    addLt3Wall(55.0, -38.4, 1.35, 1.35, 1.15);
+
+    // --- BAY 2: MID-LEFT TWO-TIER STEPPED WHITE BAY (X: +34.2 to +43.8, Z: -33.0 to -44.2) ---
+    // Upper tier (X: +34.2 to +43.8, Z: -33.0 to -38.6)
+    addLt3Floor(39.0, -35.8, 9.6, 5.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Wall(39.0, -33.0, 9.6, 0.28, lt3WallH); // Top wall
+    addLt3Wall(43.8, -35.8, 0.28, 5.6, lt3WallH); // Left wall
+    addLt3Wall(43.95, -35.8, 0.08, 5.4, lt3WallH - 0.1, 0, lt3WoodTrimMat, false); // Left wood trim
+    addLt3Wall(34.2, -35.8, 0.28, 5.6, lt3WallH); // Right wall
+    addLt3Wall(34.05, -35.8, 0.08, 5.4, lt3WallH - 0.1, 0, lt3WoodTrimMat, false); // Right wood trim
+    // Small corner vestibule boxes at transition (Z = -38.0)
+    addLt3Wall(42.9, -37.9, 1.6, 1.4, 1.25);
+    addLt3Wall(35.1, -37.9, 1.6, 1.4, 1.25);
+    // Lower protruding tier (X: +35.4 to +43.0, Z: -38.6 to -44.2)
+    addLt3Floor(39.2, -41.4, 7.6, 5.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Wall(39.2, -38.6, 7.6, 0.26, lt3WallH); // Divider wall between upper & lower tier
+    addLt3Wall(43.0, -41.4, 0.28, 5.6, lt3WallH); // Left wall of lower tier
+    addLt3Wall(35.4, -41.4, 0.28, 5.6, lt3WallH); // Right wall of lower tier
+    addLt3Wall(39.2, -44.2, 7.6, 0.30, lt3WallH); // Bottom front wall of lower tier
+
+    // --- BAY 3: CENTER GRAND PROTRUDING WHITE PLAZA & 6 VESTIBULE CUBICLES (X: +15.0 to +33.0, Z: -31.8 to -42.8) ---
+    // Row of 6 narrow entrance vestibule stalls along Z: -31.8 to -33.6
+    addLt3Floor(24.0, -32.7, 17.6, 1.8, lt3DarkFoyerFloorMat, 0.04, 0.15);
+    addLt3Wall(24.0, -31.8, 17.6, 0.26, lt3WallH); // Top back wall of 6 stalls
+    for (let s = 0; s <= 6; s++) {
+      const sx = 15.2 + s * (17.6 / 6);
+      addLt3Wall(sx, -32.7, 0.22, 1.8, lt3WallH);
+    }
+    // Front wall of 6 stalls (Z = -33.6) with 2 sets of double wooden/glass sliding doors
+    addLt3Wall(24.0, -33.6, 17.6, 0.24, lt3WallH);
+    [19.5, 28.5].forEach((dx) => {
+      addLt3Wall(dx - 0.65, -33.75, 1.1, 0.10, 1.25, 0, lt3WoodTrimMat, false);
+      addLt3Wall(dx + 0.65, -33.75, 1.1, 0.10, 1.25, 0, lt3WoodTrimMat, false);
+    });
+    // Grand White Plaza Terrace (X: +15.0 to +33.0, Z: -33.6 to -42.8)
+    addLt3Floor(24.0, -38.2, 18.0, 9.2, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Wall(33.0, -38.2, 0.30, 9.2, lt3WallH); // Left outer wall of Center Bay
+    addLt3Wall(15.0, -38.2, 0.30, 9.2, lt3WallH); // Right outer wall of Center Bay
+    // Midway side vestibule boxes on left (X = 32.3) & right (X = 15.7) at Z = -38.0
+    addLt3Wall(32.3, -38.0, 1.4, 1.5, 1.30);
+    addLt3Wall(15.7, -38.0, 1.4, 1.5, 1.30);
+    // Stepped bottom wall of Center Bay (wings at Z = -42.8, central recessed notch at Z = -41.6)
+    addLt3Wall(30.8, -42.8, 4.4, 0.30, lt3WallH); // Bottom-left wing wall
+    addLt3Wall(17.2, -42.8, 4.4, 0.30, lt3WallH); // Bottom-right wing wall
+    addLt3Wall(24.0, -41.6, 9.2, 0.30, lt3WallH); // Center recessed bottom wall
+    addLt3Wall(28.6, -42.2, 0.28, 1.2, lt3WallH); // Notch left step
+    addLt3Wall(19.4, -42.2, 0.28, 1.2, lt3WallH); // Notch right step
+
+    // --- BAY 4: MID-RIGHT TWO-TIER STEPPED WHITE BAY (X: +4.2 to +13.8, Z: -33.0 to -44.2) ---
+    // Upper tier (X: +4.2 to +13.8, Z: -33.0 to -38.6)
+    addLt3Floor(9.0, -35.8, 9.6, 5.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Wall(9.0, -33.0, 9.6, 0.28, lt3WallH); // Top wall
+    addLt3Wall(13.8, -35.8, 0.28, 5.6, lt3WallH); // Left wall
+    addLt3Wall(13.95, -35.8, 0.08, 5.4, lt3WallH - 0.1, 0, lt3WoodTrimMat, false); // Left wood trim
+    addLt3Wall(4.2, -35.8, 0.28, 5.6, lt3WallH);  // Right wall
+    addLt3Wall(4.05, -35.8, 0.08, 5.4, lt3WallH - 0.1, 0, lt3WoodTrimMat, false);  // Right wood trim
+    addLt3Wall(12.9, -37.9, 1.6, 1.4, 1.25);      // Left corner box
+    addLt3Wall(5.1, -37.9, 1.6, 1.4, 1.25);       // Right corner box
+    // Lower protruding tier (X: +5.0 to +12.6, Z: -38.6 to -44.2)
+    addLt3Floor(8.8, -41.4, 7.6, 5.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Wall(8.8, -38.6, 7.6, 0.26, lt3WallH); // Divider wall
+    addLt3Wall(12.6, -41.4, 0.28, 5.6, lt3WallH); // Left wall
+    addLt3Wall(5.0, -41.4, 0.28, 5.6, lt3WallH);  // Right wall
+    addLt3Wall(8.8, -44.2, 7.6, 0.30, lt3WallH);  // Bottom front wall
+
+    // --- BAY 5: FAR-RIGHT PROTRUDING WHITE BAY (X: -8.8 to +1.6, Z: -33.2 to -39.8) ---
+    addLt3Floor(-3.6, -36.5, 10.4, 6.6, lt3BrightWhiteFloorMat, 0.05, 0.16);
+    addLt3Floor(0.2, -40.5, 2.8, 1.8, lt3BrightWhiteFloorMat, 0.05, 0.16); // Bottom-left stepped notch
+    addLt3Wall(-3.6, -33.2, 10.4, 0.28, lt3WallH); // Top wall
+    addLt3Wall(-8.8, -36.5, 0.30, 6.6, lt3WallH);  // Far-right outer wall
+    addLt3Wall(-5.0, -39.8, 7.6, 0.30, lt3WallH);  // Bottom wall
+    addLt3Wall(0.2, -41.4, 2.8, 0.30, lt3WallH);   // Stepped notch bottom wall
+    addLt3Wall(-1.2, -40.6, 0.28, 1.6, lt3WallH);  // Stepped notch inner wall
+    addLt3Wall(1.6, -37.3, 0.30, 8.2, lt3WallH, 0.06); // Left wall of Bay 5
+    addLt3Wall(1.8, -37.3, 0.08, 7.8, lt3WallH - 0.1, 0.06, lt3WoodTrimMat, false); // Warm wood exterior trim
+    // Small square shaft box in bottom-right corner of Bay 5
+    addLt3Wall(-7.0, -38.4, 1.35, 1.35, 1.15);
+
+    // 5. LEFT (+X: +48.5 to +54.5) & RIGHT (-X: -6.5 to -0.5) PERIMETER ROOMS, RESTROOMS & WAITING AREAS
+    // Outer Left (+X = 54.2) & Outer Right (-X = -6.2) main side walls
+    addLt3Wall(54.2, -23.2, 0.32, 20.4, lt3WallH);
+    addLt3Wall(-6.2, -23.2, 0.32, 20.4, lt3WallH);
+
+    // 5A. Bottom-Left (X: 48.6..54.0, Z: -32.2..-29.8) & Bottom-Right (X: -6.0..-0.6, Z: -32.2..-29.8) 3-Stall Blocks
+    [51.3, -3.3].forEach((bx) => {
+      addLt3Floor(bx, -31.0, 5.2, 2.4, lt3VoidWellFloorMat, 0.04, 0.15);
+      addLt3Wall(bx, -32.2, 5.2, 0.24, lt3WallH);
+      addLt3Wall(bx, -29.8, 5.2, 0.24, lt3WallH);
+      [-2.5, -0.85, 0.85, 2.5].forEach((dx) => {
+        addLt3Wall(bx + dx, -31.0, 0.22, 2.4, lt3WallH);
+      });
+    });
+
+    // Potted green shrubs & wall frames at Z = -28.4 along Left (X=53.5) & Right (X=-5.5) walls
+    [-28.8, -28.1, -27.4].forEach((pz) => {
+      const pLeft = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), lt3PlantGreenMat);
+      pLeft.position.set(53.4, lt3FloorY + 0.35, pz);
+      lantai3Group.add(pLeft);
+      const pRight = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), lt3PlantGreenMat);
+      pRight.position.set(-5.4, lt3FloorY + 0.35, pz);
+      lantai3Group.add(pRight);
+    });
+
+    // 5B. Middle-Left (X: +48.5 to +54.2, Z: -27.0 to -19.0) & Middle-Right (X: -6.2 to -0.5, Z: -27.0 to -19.0) Restroom & Lounge Blocks
+    [
+      { cx: 51.35, innerX: 48.5, sign: 1 },
+      { cx: -3.35, innerX: -0.5, sign: -1 },
+    ].forEach((side) => {
+      addLt3Floor(side.cx, -23.0, 5.6, 8.0, lt3VoidWellFloorMat, 0.04, 0.15);
+      addLt3Wall(side.cx, -27.0, 5.6, 0.26, lt3WallH); // Bottom wall of restroom block
+      addLt3Wall(side.cx, -19.0, 5.6, 0.26, lt3WallH); // Top wall of restroom block
+      addLt3Wall(side.cx, -22.2, 5.5, 0.22, lt3WallH); // Internal horizontal divider
+      // Wooden doors on bottom & top walls
+      addLt3Wall(side.cx - side.sign * 0.8, -27.14, 1.1, 0.08, 1.25, 0, lt3WoodTrimMat, false);
+      addLt3Wall(side.cx - side.sign * 0.8, -18.86, 1.1, 0.08, 1.25, 0, lt3WoodTrimMat, false);
+      // Glass partition wall facing main hall (along innerX) with central wall pillar
+      addLt3Wall(side.innerX, -23.0, 0.12, 7.8, lt3WallH - 0.1, 0, lt3GlassPartitionMat, false);
+      addLt3Wall(side.innerX, -23.0, 0.28, 1.6, lt3WallH);
+      // Central square plumbing core column & white ceramic washbasins inside restroom
+      addLt3SquareColumn(side.cx, -24.6, 0.95, 1.45);
+      [-26.0, -25.0, -23.6].forEach((sz) => {
+        addLt3Wall(side.cx + side.sign * 1.8, sz, 1.6, 0.18, 1.20, 0, lt3PureWhiteWallMat, false);
+        const sink = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.45, 0.48), lt3PureWhiteWallMat);
+        sink.position.set(side.cx - side.sign * 1.6, lt3FloorY + 0.30, sz);
+        lantai3Group.add(sink);
+      });
+    });
+
+    // 5C. Upper-Left (X: +48.5 to +54.2, Z: -18.8 to -12.2) & Upper-Right (X: -6.2 to -0.5, Z: -18.8 to -12.2) Stepped Office Blocks
+    [
+      { cx: 51.35, innerX: 48.5, sign: 1 },
+      { cx: -3.35, innerX: -0.5, sign: -1 },
+    ].forEach((side) => {
+      addLt3Floor(side.cx, -15.5, 5.6, 6.6, lt3VoidWellFloorMat, 0.04, 0.15);
+      addLt3Wall(side.innerX, -15.5, 0.26, 6.6, lt3WallH);
+      addLt3Wall(side.cx, -12.2, 5.6, 0.28, lt3WallH);
+      addLt3Wall(side.cx, -15.5, 5.4, 0.22, lt3WallH);
+      addLt3Wall(side.cx, -17.2, 5.4, 0.22, lt3WallH);
+      addLt3Wall(side.innerX - side.sign * 0.14, -18.0, 0.08, 0.95, 1.25, 0, lt3WoodTrimMat, false);
+    });
+
+    // 6. TOP (REAR AIRSIDE +Z) MULTI-ROOM CLUSTERS, TWIN CURVED DARK FOYERS,
+    //    CENTRAL ESCALATOR RAMP CONSERVATORY & LONG LEFT/RIGHT SKYWALK WINGS
+    // 6A. Top-Left Multi-Room Cluster (X: +33.0 to +48.5, Z: -15.6 to -11.6)
+    addLt3Floor(40.8, -13.6, 15.6, 4.0, lt3VoidWellFloorMat, 0.04, 0.15);
+    addLt3Wall(40.8, -11.6, 15.6, 0.28, lt3WallH); // Rear wall
+    addLt3Wall(40.8, -15.6, 15.6, 0.26, lt3WallH); // Front corridor wall facing main hall
+    addLt3Wall(46.2, -13.6, 4.6, 0.22, lt3WallH);  // Internal horizontal divider
+    [48.5, 46.8, 45.0, 43.2, 41.2, 39.2].forEach((wx) => {
+      addLt3Wall(wx, -13.6, 0.22, 4.0, lt3WallH);
+    });
+    // 5 Narrow Angled Service / Check-In Stalls in Top-Left-Center (X: +33.2 to +38.8, Z: -15.6 to -13.8)
+    for (let k = 0; k <= 5; k++) {
+      const kx = 33.4 + k * 1.05;
+      addLt3Wall(kx, -14.7, 0.18, 1.8, 1.35, 0.22);
+    }
+
+    // 6B. Top-Center-Left & Top-Center-Right Recessed Dark Foyers with Semicircular Curved Borders
+    //     Left Foyer centered at X = 30.2, Right Foyer centered at X = 17.8 (Z: -16.4 to -12.0)
+    [30.2, 17.8].forEach((fx, fIdx) => {
+      // Semicircular dark-grey floor disc extending into the hall
+      const arcDisc = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.9, 2.9, 0.16, 28),
+        lt3DarkFoyerFloorMat
+      );
+      arcDisc.position.set(fx, lt3FloorY + 0.05, -14.6);
+      arcDisc.receiveShadow = true;
+      lantai3Group.add(arcDisc);
+
+      // Rectangular dark foyer back floor (Z: -14.6 to -12.0)
+      addLt3Floor(fx, -13.3, 5.6, 2.6, lt3DarkFoyerFloorMat, 0.05, 0.16);
+      // Cream back wall of foyer (Z = -12.2)
+      addLt3Wall(fx, -12.2, 5.6, 0.28, lt3WallH);
+      // Display screen / board on the foyer back wall (dark screen on Left foyer, white board on Right foyer)
+      const boardMat = new THREE.MeshBasicMaterial({ color: fIdx === 0 ? 0x0f172a : 0xf1f5f9 });
+      const board = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.65, 0.08), boardMat);
+      board.position.set(fx, lt3FloorY + 1.05, -12.36);
+      lantai3Group.add(board);
+
+      // Green planters flanking both sides of the foyer
+      [-2.5, 2.5].forEach((dx) => {
+        const bush = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), lt3PlantGreenMat);
+        bush.position.set(fx + dx, lt3FloorY + 0.38, -14.5);
+        lantai3Group.add(bush);
+      });
+    });
+
+    // 6C. Top-Center Protruding Escalator / Travellator Ramp & Upper Boarding Conservatory (X: +19.6 to +27.2, Z: -15.6 to -6.8)
+    // Left dark inclined ramp / travellator corridor (X: +25.2 to +27.0, Z: -15.6 to -9.6)
+    const rampMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.75, 0.18, 6.2),
+      lt3DarkFoyerFloorMat
+    );
+    rampMesh.position.set(26.1, lt3FloorY + 0.35, -12.6);
+    rampMesh.rotation.x = 0.08;
+    rampMesh.receiveShadow = true;
+    lantai3Group.add(rampMesh);
+    addLt3Wall(27.05, -12.6, 0.26, 6.2, lt3WallH + 0.2); // Left wall of ramp
+    addLt3Wall(25.15, -12.6, 0.24, 6.2, lt3WallH + 0.2); // Right wall of ramp
+
+    // Right waiting foyer next to ramp (X: +19.8 to +25.1, Z: -15.6 to -10.0)
+    addLt3Floor(22.45, -12.8, 5.3, 5.6, lt3VoidWellFloorMat, 0.04, 0.15);
+    addLt3Wall(24.0, -15.0, 2.1, 1.4, lt3WallH); // Cream booth at bottom-left of foyer
+    addLt3Wall(19.8, -15.0, 1.8, 1.4, lt3WallH); // Cream booth at bottom-right of foyer
+    addLt3SquareColumn(22.4, -11.5, 0.65, 1.55); // Central bridge column
+
+    // Upper Protruding Rectangular Boarding Lounge / Conservatory (X: +19.6 to +27.2, Z: -10.0 to -6.8)
+    addLt3Floor(23.4, -8.4, 7.6, 3.2, lt3DarkFoyerFloorMat, 0.25, 0.18);
+    addLt3Wall(27.2, -8.4, 0.28, 3.2, lt3WallH + 0.3); // Left wall
+    addLt3Wall(19.6, -8.4, 0.28, 3.2, lt3WallH + 0.3); // Right wall
+    addLt3Wall(23.4, -6.8, 7.6, 0.28, lt3WallH + 0.3); // Top back wall
+    // 8 Illuminated Vertical Window Panels along the top back wall (Z = -6.96) matching reference image
+    for (let wx = 20.3; wx <= 26.5; wx += 0.88) {
+      const winPane = new THREE.Mesh(
+        new THREE.BoxGeometry(0.46, 1.15, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0xfef9c3 })
+      );
+      winPane.position.set(wx, lt3FloorY + 0.95, -6.98);
+      lantai3Group.add(winPane);
+    }
+
+    // 6D. Top-Right Multi-Room Cluster & Warm Cafe / Lounge Bar (X: -0.5 to +15.0, Z: -15.6 to -11.6)
+    addLt3Floor(7.25, -13.6, 15.5, 4.0, lt3VoidWellFloorMat, 0.04, 0.15);
+    addLt3Wall(7.25, -11.6, 15.5, 0.28, lt3WallH); // Rear wall
+    addLt3Wall(12.4, -15.6, 5.2, 0.26, lt3WallH);  // Front wall of 4 small left cubicles
+    [15.0, 13.7, 12.4, 11.1, 9.8].forEach((wx) => {
+      addLt3Wall(wx, -14.4, 0.20, 2.4, lt3WallH);
+    });
+    // Warm-Lit Cafe / Restaurant Counter in Center of Top-Right Cluster (X: +4.2 to +9.6, Z = -14.8)
+    const cafeCounter = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.85, 0.75), lt3WoodTrimMat);
+    cafeCounter.position.set(6.9, lt3FloorY + 0.50, -14.6);
+    cafeCounter.castShadow = true;
+    lantai3Group.add(cafeCounter);
+    const cafeSign = new THREE.Mesh(
+      new THREE.BoxGeometry(3.8, 0.42, 0.18),
+      new THREE.MeshBasicMaterial({ color: 0xd97706 })
+    );
+    cafeSign.position.set(6.9, lt3FloorY + 1.35, -14.2);
+    lantai3Group.add(cafeSign);
+    // Partitioned rooms on right end of Top-Right Cluster (X: -0.5 to +4.2, Z: -15.6 to -11.6)
+    [4.2, 2.0, -0.5].forEach((wx) => {
+      addLt3Wall(wx, -13.6, 0.22, 4.0, lt3WallH);
+    });
+    addLt3Wall(1.85, -15.6, 4.7, 0.26, lt3WallH);
+    addLt3Wall(1.85, -13.6, 4.7, 0.22, lt3WallH);
+
+    // 6E. Long Left (X: +27.2 to +62.5) & Right (X: -14.5 to +19.6) Elevated Skywalk Corridors (Z = -10.8)
+    // Left Skywalk Corridor & Support Pillar
+    addLt3Floor(44.85, -10.8, 35.3, 1.5, lt3VoidWellFloorMat, 0.12, 0.16);
+    addLt3Wall(44.85, -10.05, 35.3, 0.22, 0.95);
+    addLt3Wall(55.5, -11.55, 14.0, 0.22, 0.95);
+    addLt3SquareColumn(31.2, -10.8, 0.62, 1.25);
+    // Far-Left Stairwell / Elevator Landing Box (X: +59.0 to +62.5, Z: -13.6 to -10.2)
+    addLt3Floor(60.75, -11.9, 3.5, 3.4, lt3VoidWellFloorMat, 0.10, 0.16);
+    addLt3Wall(62.5, -11.9, 0.26, 3.4, 1.15);
+    addLt3Wall(59.0, -11.9, 0.26, 3.4, 1.15);
+    addLt3Wall(60.75, -13.6, 3.5, 0.26, 1.15);
+    addLt3Wall(60.75, -11.9, 0.22, 2.2, 0.95); // Internal stair divider
+
+    // Right Skywalk Corridor & Support Pillar
+    addLt3Floor(2.55, -10.8, 34.1, 1.5, lt3VoidWellFloorMat, 0.12, 0.16);
+    addLt3Wall(2.55, -10.05, 34.1, 0.22, 0.95);
+    addLt3Wall(-7.5, -11.55, 14.0, 0.22, 0.95);
+    // Far-Right Stairwell / Elevator Landing Box + Angled Wing Wall (X: -14.5 to -11.0, Z: -13.6 to -10.2)
+    addLt3Floor(-12.75, -11.9, 3.5, 3.4, lt3VoidWellFloorMat, 0.10, 0.16);
+    addLt3Wall(-14.5, -11.9, 0.26, 3.4, 1.15);
+    addLt3Wall(-11.0, -11.9, 0.26, 3.4, 1.15);
+    addLt3Wall(-12.75, -13.6, 3.5, 0.26, 1.15);
+    addLt3Wall(-12.75, -11.9, 0.22, 2.2, 0.95);
+    // Protruding angled wing wall at far top-right corner (Z: -10.2 to -7.4) matching reference photo
+    addLt3Wall(-11.4, -8.8, 0.28, 3.2, 1.35, -0.25, lt3PureWhiteWallMat);
+
+    // 7. 3D ARCHITECTURAL MINI-PEOPLE / PASSENGERS ACROSS LANTAI 3 TERMINAL UTAMA
+    const addLt3Person = (px: number, pz: number, shirtHex: number = 0x1e293b, rotY: number = 0) => {
+      const pg = new THREE.Group();
+      pg.position.set(px, lt3FloorY + 0.10, pz);
+      pg.rotation.y = rotY;
+      const legs = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.07, 0.36, 8),
+        new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 })
+      );
+      legs.position.y = 0.18;
+      legs.castShadow = true;
+      pg.add(legs);
+      const torso = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.09, 0.34, 8),
+        new THREE.MeshStandardMaterial({ color: shirtHex, roughness: 0.5 })
+      );
+      torso.position.y = 0.50;
+      torso.castShadow = true;
+      pg.add(torso);
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.085, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.5 })
+      );
+      head.position.y = 0.74;
+      pg.add(head);
+      lantai3Group.add(pg);
+    };
+
+    // Distribute 24 passengers in realistic groups & solo walkers matching reference photo
+    [
+      [34.2, -32.6, 0x1e293b], [33.8, -32.2, 0xf8fafc],
+      [14.2, -32.2, 0x334155], [13.7, -32.4, 0xe2e8f0],
+      [11.2, -31.2, 0x0f172a], [5.8, -30.5, 0x475569],
+      [47.5, -31.2, 0x1e293b], [47.1, -30.8, 0xd97706],
+      [21.2, -21.0, 0xf8fafc],
+      [12.8, -22.2, 0x1e293b], [12.3, -22.0, 0x991b1b], [11.8, -22.3, 0x0f172a], [11.4, -22.5, 0xf8fafc],
+      [3.2, -20.5, 0x1e293b], [2.6, -20.6, 0x334155],
+      [-0.8, -28.2, 0x0f172a], [-1.3, -28.5, 0x475569],
+      [36.5, -16.4, 0x1e293b], [25.2, -16.2, 0x334155],
+      [28.4, -15.4, 0x0f172a], [28.0, -15.0, 0x475569],
+      [15.8, -15.4, 0x1e293b], [15.3, -15.1, 0xf8fafc],
+      [47.8, -24.5, 0x334155],
+    ].forEach(([px, pz, col], idx) => {
+      addLt3Person(px, pz, col, (idx * 1.1) % (Math.PI * 2));
+    });
+
+    utamaGroup.add(lantai3Group);
+    this.lantai3Meshes.push(lantai3Group);
 
     // -------------------------------------------------------------------------
     // LANTAI 2 (Y = 4.6m) ARCHITECTURAL MOCKUP — TERMINAL UTAMA
@@ -2845,7 +4278,7 @@ export class AirportSceneManager {
     lt3Sidewalk.receiveShadow = true;
     lt3Sidewalk.castShadow = true;
     utamaGroup.add(lt3Sidewalk);
-    this.lantai2Meshes.push(lt3Sidewalk);
+    this.upperRoofMeshes.push(lt3Sidewalk);
 
     // Lower Structural Support Columns under Lantai 3 Curbside Sidewalk (from Y=0 to Y=9.6m)
     for (let sx = utamaX - utamaW / 2 + 4; sx <= utamaX + utamaW / 2 - 4; sx += 13.0) {
@@ -2856,7 +4289,7 @@ export class AirportSceneManager {
       subCol.position.set(sx, lt3Y / 2, frontWallZ - 3.2);
       subCol.castShadow = true;
       utamaGroup.add(subCol);
-      this.lantai2Meshes.push(subCol);
+      this.upperRoofMeshes.push(subCol);
     }
 
     // Chamfered Silver-Metallic Curbside Drop-Off Canopy Overhang above Lantai 3 (Y = 13.6m)
@@ -2890,20 +4323,20 @@ export class AirportSceneManager {
       octBase.castShadow = true;
       octBase.receiveShadow = true;
       utamaGroup.add(octBase);
-      this.lantai2Meshes.push(octBase);
+      this.upperRoofMeshes.push(octBase);
 
       const collarGeo = new THREE.CylinderGeometry(0.5, 0.54, 0.12, 16);
       const collar = new THREE.Mesh(collarGeo, roofAccentMat);
       collar.position.set(cx, lt3Y + 1.5, colZ);
       utamaGroup.add(collar);
-      this.lantai2Meshes.push(collar);
+      this.upperRoofMeshes.push(collar);
 
       const whiteColGeo = new THREE.CylinderGeometry(0.42, 0.46, 4.2, 20);
       const whiteCol = new THREE.Mesh(whiteColGeo, whiteColumnMat);
       whiteCol.position.set(cx, lt3Y + 1.55 + 2.1, colZ);
       whiteCol.castShadow = true;
       utamaGroup.add(whiteCol);
-      this.lantai2Meshes.push(whiteCol);
+      this.upperRoofMeshes.push(whiteCol);
 
       const strutGeo = new THREE.CylinderGeometry(0.22, 0.34, 2.2, 12);
       const strut = new THREE.Mesh(strutGeo, silverCanopyMat);
@@ -2926,7 +4359,7 @@ export class AirportSceneManager {
       carModel.position.set(car.x, lt3Y + 0.26, frontWallZ - 6.8);
       carModel.rotation.y = Math.PI / 2;
       utamaGroup.add(carModel);
-      this.lantai2Meshes.push(carModel);
+      this.upperRoofMeshes.push(carModel);
     });
 
     const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
@@ -2934,7 +4367,7 @@ export class AirportSceneManager {
       const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 12), coneMat);
       cone.position.set(kx, lt3Y + 0.6, frontWallZ - 5.3);
       utamaGroup.add(cone);
-      this.lantai2Meshes.push(cone);
+      this.upperRoofMeshes.push(cone);
     }
 
     // -------------------------------------------------------------------------
@@ -3127,10 +4560,10 @@ export class AirportSceneManager {
       'TERMINAL EKSISTING • LANTAI 2',
       '#eab308',
       '#0f172a',
-      8.5,
+      9.2,
       1.2,
       36,
-      'BOARDING GATES 07 - 12 & COMMERCIAL'
+      'JBSS 2.2 (INTL GATE 10-12) & JBSS 2.4 (DOM GATE 07-09)'
     );
     eksHeaderPlaque.position.set(24.0, 5.25, 6.8);
     eksistingGroup.add(eksHeaderPlaque);
@@ -3157,6 +4590,172 @@ export class AirportSceneManager {
       eksistingGroup.add(spk2);
       this.lantai2Meshes.push(spk2);
     });
+
+    // =========================================================================
+    // BLOK DIAGRAM SISTEM PUBLIC ADDRESS — TERMINAL EKSISTING LANTAI 2
+    // (Sesuai WIKA-ABD-BSH-ES-TE-0001C-00, 0002-00 & 0103-00)
+    // - Vertical Riser Shaft from MDF-SS (R. Kontrol Lt.1) to Lantai 2 (X = 8.4, Z = 4.6)
+    // - JBSS 2.2 (JBSS-2.2.Z2.2 — Timur/Internasional, X = 36.5, Z = 4.6):
+    //   71 Ceiling 6W • 19 Column 15W • 8 Wall 6W (AMP 2.2 PA & AMP 2.2 DAR 600W 4Ch)
+    //   Zones: Z2.1.1 (Public Intl), Z2.1.2 (Public Intl), Z2.1.3 (Emergency Office/Tenant/Mushala)
+    // - JBSS 2.4 (JBSS-2.4.Z4.2 — Barat/Domestik, X = 9.5, Z = 4.6):
+    //   53 Ceiling 6W • 20 Column 15W • 5 Wall 6W • 13 AVC • 6 Paging Mic (AMP 2.4 PA & DAR)
+    //   Zones: Z4.1.1 (Public Dom), Z4.1.2 (Public Dom), Z4.1.3 (Public Dom), Z4.1.4 (Emergency Boarding)
+    // =========================================================================
+    const paBlockLt2Group = new THREE.Group();
+    const l2JbssBodyMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.32, metalness: 0.55 });
+    const l2PublicMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3, metalness: 0.55 });
+    const l2EmergMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3, metalness: 0.55 });
+
+    const addL2PaCableLine = (pts: [number, number, number][], colorHex: number, radius: number = 0.085) => {
+      const vecs = pts.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+      const curve = new THREE.CatmullRomCurve3(vecs, false, 'catmullrom', 0.08);
+      const tubeGeo = new THREE.TubeGeometry(curve, Math.max(12, vecs.length * 8), radius, 8, false);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        emissive: colorHex,
+        emissiveIntensity: 0.35,
+        roughness: 0.3,
+        metalness: 0.5,
+      });
+      const mesh = new THREE.Mesh(tubeGeo, tubeMat);
+      paBlockLt2Group.add(mesh);
+    };
+
+    // Main Feeder Cable Tray (NYMHY 3x2.5mm²) from Riser Shaft MDF-SS (X=8.4, Z=14.5) -> JBSS 2.4 (X=9.5, Z=4.6) -> JBSS 2.2 (X=36.5, Z=4.6)
+    addL2PaCableLine(
+      [
+        [8.4, 2.2, 14.5],
+        [8.4, 5.95, 14.5],
+        [9.5, 5.95, 4.6],
+        [23.0, 5.95, 4.6],
+        [36.5, 5.95, 4.6],
+      ],
+      0xf59e0b,
+      0.11
+    );
+
+    const addL2JbssCabinet = (x: number, z: number, title: string, subtitle: string, badgeBg: string) => {
+      const jbGroup = new THREE.Group();
+      jbGroup.position.set(x, 4.84, z);
+
+      const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.35, 0.55), l2JbssBodyMat);
+      pedestal.position.y = 0.675;
+      pedestal.castShadow = true;
+      jbGroup.add(pedestal);
+
+      const doorPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 1.15, 0.58),
+        new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.35, metalness: 0.3 })
+      );
+      doorPanel.position.y = 0.68;
+      jbGroup.add(doorPanel);
+
+      const ledBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 14, 14),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e })
+      );
+      ledBeacon.position.y = 1.48;
+      jbGroup.add(ledBeacon);
+
+      const plaque = this.createPlaqueMesh(title, badgeBg, '#ffffff', 6.5, 1.0, 30, subtitle);
+      plaque.position.set(0, 2.15, 0);
+      jbGroup.add(plaque);
+
+      paBlockLt2Group.add(jbGroup);
+    };
+
+    // --- JBSS 2.2 (LANTAI 2 TIMUR / KEBERANGKATAN INTERNASIONAL: X = 36.5, Z = 4.6) ---
+    addL2JbssCabinet(
+      36.5,
+      4.6,
+      'JBSS 2.2 (JBSS-2.2.Z2.2) • LT. 2 INTL',
+      '71 CEILING 6W • 19 COLUMN 15W • 8 WALL 6W (AMP 2.2 PA & DAR)',
+      '#059669'
+    );
+
+    const jbss22Zones: { code: string; spec: string; x: number; z: number; isEmergency: boolean }[] = [
+      { code: 'JBSS Z2.1.1 (PUBLIC INTL)', spec: '25× Ceiling Speaker 6W (150W) • Gate 11-12', x: 48.0, z: 10.8, isEmergency: false },
+      { code: 'JBSS Z2.1.2 (PUBLIC INTL)', spec: '29× Ceiling 6W • 8× Wall Speaker 6W • Gate 10', x: 33.5, z: 10.8, isEmergency: false },
+      { code: 'JBSS Z2.1.3 (EMERGENCY)', spec: '20× Ceil 6W • 19× Col 15W • Office/Tenant/Mushala', x: 42.0, z: 1.5, isEmergency: true },
+    ];
+    jbss22Zones.forEach((zn) => {
+      addL2PaCableLine(
+        [
+          [36.5, 5.95, 4.6],
+          [(36.5 + zn.x) * 0.5, 5.95, (4.6 + zn.z) * 0.5],
+          [zn.x, 5.95, zn.z],
+        ],
+        zn.isEmergency ? 0xef4444 : 0x10b981,
+        0.065
+      );
+      const nodeBox = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.35, 16),
+        zn.isEmergency ? l2EmergMat : l2PublicMat
+      );
+      nodeBox.position.set(zn.x, 5.95, zn.z);
+      paBlockLt2Group.add(nodeBox);
+
+      const zPlaque = this.createPlaqueMesh(
+        zn.code,
+        zn.isEmergency ? '#dc2626' : '#047857',
+        '#ffffff',
+        4.8,
+        0.78,
+        28,
+        zn.spec
+      );
+      zPlaque.position.set(zn.x, 6.48, zn.z);
+      paBlockLt2Group.add(zPlaque);
+    });
+
+    // --- JBSS 2.4 (LANTAI 2 BARAT / KEBERANGKATAN DOMESTIK: X = 9.5, Z = 4.6) ---
+    addL2JbssCabinet(
+      9.5,
+      4.6,
+      'JBSS 2.4 (JBSS-2.4.Z4.2) • LT. 2 DOM',
+      '53 CEIL 6W • 20 COL 15W • 5 WALL 6W • 13 AVC • 6 MIC',
+      '#059669'
+    );
+
+    const jbss24Zones: { code: string; spec: string; x: number; z: number; isEmergency: boolean }[] = [
+      { code: 'JBSS Z4.1.1 (PUBLIC DOM)', spec: '5× Wall Speaker 6W (38x Skematik) • Koridor Domestik', x: 19.5, z: 2.2, isEmergency: false },
+      { code: 'JBSS Z4.1.2 (PUBLIC DOM)', spec: '29× Ceiling Speaker 6W (174W) • Gate 09', x: 16.5, z: 10.8, isEmergency: false },
+      { code: 'JBSS Z4.1.3 (PUBLIC DOM)', spec: '40× Ceiling Speaker 6W (240W) • Gate 07-08', x: -3.5, z: 10.8, isEmergency: false },
+      { code: 'JBSS Z4.1.4 (EMERGENCY)', spec: '5× Ceil 6W • 20× Col 15W • Boarding Lounge & Koridor', x: 3.5, z: 7.2, isEmergency: true },
+    ];
+    jbss24Zones.forEach((zn) => {
+      addL2PaCableLine(
+        [
+          [9.5, 5.95, 4.6],
+          [(9.5 + zn.x) * 0.5, 5.95, (4.6 + zn.z) * 0.5],
+          [zn.x, 5.95, zn.z],
+        ],
+        zn.isEmergency ? 0xef4444 : 0x10b981,
+        0.065
+      );
+      const nodeBox = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.35, 16),
+        zn.isEmergency ? l2EmergMat : l2PublicMat
+      );
+      nodeBox.position.set(zn.x, 5.95, zn.z);
+      paBlockLt2Group.add(nodeBox);
+
+      const zPlaque = this.createPlaqueMesh(
+        zn.code,
+        zn.isEmergency ? '#dc2626' : '#047857',
+        '#ffffff',
+        4.8,
+        0.78,
+        28,
+        zn.spec
+      );
+      zPlaque.position.set(zn.x, 6.48, zn.z);
+      paBlockLt2Group.add(zPlaque);
+    });
+
+    eksistingGroup.add(paBlockLt2Group);
+    this.lantai2Meshes.push(paBlockLt2Group);
 
     // Interactive Volume for Terminal Eksisting (2 Lantai) [macro-2]
     const eksZoneGeo = new THREE.BoxGeometry(eksW - 0.8, eksH - 0.6, eksD - 0.8);
@@ -3604,10 +5203,30 @@ export class AirportSceneManager {
       armGroup.add(roofCap);
       this.upperRoofMeshes.push(roofCap);
 
-      // Hydraulic Wheel Bogie Pylon + Twin Tires at end of Garbarata
-      const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.6, 12), roofAccentMat);
+      // Hydraulic Wheel Bogie Pylon + Twin Tires at end of Garbarata (Tiang Garbarata Utama)
+      const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.6, 16), roofAccentMat);
       pylon.position.set(0, 2.3, length - 0.8);
+      pylon.castShadow = true;
       armGroup.add(pylon);
+
+      // Mount 3D Bosch Horn Loudspeaker on every Tiang Garbarata Bandara (facing apron & service lane)
+      const garbarataHornFront = this.createPillarBoschHornSpeaker(0.28, 0, 0.44);
+      garbarataHornFront.position.set(0, 3.45, length - 0.8);
+      armGroup.add(garbarataHornFront);
+
+      const garbarataHornSide = this.createPillarBoschHornSpeaker(0.28, Math.PI / 2, 0.40);
+      garbarataHornSide.position.set(0, 2.85, length - 0.8);
+      armGroup.add(garbarataHornSide);
+
+      // Secondary Mid-Span Support Pillar (Tiang Penyangga Tengah Garbarata) with Bosch Horn Speaker
+      const midPylon = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 4.6, 14), roofAccentMat);
+      midPylon.position.set(0, 2.3, length * 0.44);
+      midPylon.castShadow = true;
+      armGroup.add(midPylon);
+
+      const midGarbarataHorn = this.createPillarBoschHornSpeaker(0.22, -Math.PI / 2, 0.40);
+      midGarbarataHorn.position.set(0, 3.35, length * 0.44);
+      armGroup.add(midGarbarataHorn);
 
       [-0.55, 0.55].forEach((wx) => {
         const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.22, 14), bellowsMat);
@@ -3770,16 +5389,6 @@ export class AirportSceneManager {
     );
     parkirLabel.position.set(42, 16.5, -68);
     labelsGroup.add(parkirLabel);
-
-    const tuguLabel = this.createLabelSprite(
-      'PATUNG SULTAN HASANUDDIN',
-      'rgba(15, 23, 42, 0.88)',
-      '#10b981',
-      26,
-      4.5
-    );
-    tuguLabel.position.set(6.5, 15.8, -71.5);
-    labelsGroup.add(tuguLabel);
 
     const apronLabel = this.createLabelSprite(
       'APRON & 12 GARBARATA',
@@ -4180,113 +5789,124 @@ export class AirportSceneManager {
     canvas.width = 1024;
     canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
-
-    ctx.clearRect(0, 0, 1024, 256);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
 
     const mapX = (xFromNose: number, width: number = 0) =>
       isRightSide ? 1024 - xFromNose - width : xFromNose;
 
-    // 1. Indonesian Red & White Flag (Bendera Merah Putih) ahead of Forward Door
-    const flagX = mapX(46, 26);
-    ctx.fillStyle = '#dc2626';
-    ctx.fillRect(flagX, 110, 26, 9);
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(flagX, 119, 26, 9);
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(flagX, 110, 26, 18);
+    const renderLiveryCanvas = () => {
+      ctx.clearRect(0, 0, 1024, 256);
 
-    // 2. Giant Bold Red "Lion" Billboard Title on Forward Fuselage (matching image_424a4258.png)
-    ctx.save();
-    const lionCenterX = isRightSide ? 1024 - 275 : 275;
-    ctx.translate(lionCenterX, 134);
-    ctx.fillStyle = '#dc2626';
-    ctx.font = '900 118px "Arial Black", "Plus Jakarta Sans", Impact, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Lion', 0, 0);
-    ctx.restore();
-
-    // 3. Forward (L1/R1) & Rear (L2/R2) Passenger Boarding Doors
-    const drawCabinDoor = (xFromNose: number) => {
-      const dx = mapX(xFromNose, 42);
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.roundRect(dx, 82, 42, 92, 10);
-      ctx.stroke();
-
-      // Door upper window & handle line
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(dx + 13, 98, 16, 20, 4);
-      ctx.fill();
-
+      // 1. Indonesian Red & White Flag (Bendera Merah Putih) ahead of Forward Door
+      const flagX = mapX(46, 26);
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(flagX, 120, 26, 9);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(flagX, 129, 26, 9);
       ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(dx + 10, 132);
-      ctx.lineTo(dx + 32, 132);
-      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.strokeRect(flagX, 120, 26, 18);
+
+      // 2. Giant Bold Red "Fahrun Air" Billboard Title Positioned ABOVE the Cabin Windows
+      //    Styled in the Aneto Skyline model (tall, compressed, high-contrast serif display typeface)
+      ctx.save();
+      const titleCenterX = isRightSide ? 1024 - 315 : 315;
+      ctx.translate(titleCenterX, 70);
+      ctx.scale(0.78, 1.18); // Tall compressed Aneto Skyline vertical presence
+      ctx.fillStyle = '#dc2626';
+      ctx.font = '900 68px "Aneto Skyline", "Bodoni Moda", "Playfair Display", Didot, Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Fahrun Air', 0, 0, 420);
+      ctx.restore();
+
+      // 3. Forward (L1/R1) & Rear (L2/R2) Passenger Boarding Doors
+      const drawCabinDoor = (xFromNose: number) => {
+        const dx = mapX(xFromNose, 42);
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.roundRect(dx, 88, 42, 92, 10);
+        ctx.stroke();
+
+        // Door upper window & handle line
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(dx + 13, 104, 16, 20, 4);
+        ctx.fill();
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(dx + 10, 138);
+        ctx.lineTo(dx + 32, 138);
+        ctx.stroke();
+      };
+
+      drawCabinDoor(90);  // Forward L1/R1 Door
+      drawCabinDoor(905); // Rear L2/R2 Door
+
+      // 4. Two Overwing Emergency Exit Hatch Outlines in Mid-Fuselage (matching image_424a4258.png)
+      [492, 534].forEach((exitX) => {
+        const ex = mapX(exitX, 28);
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(ex, 104, 28, 56, 6);
+        ctx.stroke();
+      });
+
+      // 5. Full Row of Dark Rounded-Rectangle Cabin Windows along the Fuselage (below "Fahrun Air")
+      for (let wx = 152; wx <= 872; wx += 22) {
+        const rx = mapX(wx, 12);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.roundRect(rx, 124, 12, 19, 4);
+        ctx.stroke();
+        ctx.fill();
+      }
+
+      // 6. Rear Fuselage Markings ("BOEING 737 MAX 8", "Lion Group", "PK-L...")
+      ctx.save();
+      const rearTextX = isRightSide ? 1024 - 775 : 775;
+      ctx.translate(rearTextX, 94);
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'italic bold 16px "Aneto Skyline", "Bodoni Moda", "Playfair Display", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('BOEING 737 MAX 8', 0, 0);
+      ctx.restore();
+
+      ctx.save();
+      const groupTextX = isRightSide ? 1024 - 745 : 745;
+      ctx.translate(groupTextX, 168);
+      ctx.fillStyle = '#dc2626';
+      ctx.font = 'bold 17px "Aneto Skyline", "Bodoni Moda", "Playfair Display", serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Lion Group', 0, 0);
+      ctx.restore();
+
+      ctx.save();
+      const regTextX = isRightSide ? 1024 - 848 : 848;
+      ctx.translate(regTextX, 154);
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 14px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PK-LMAX', 0, 0);
+      ctx.restore();
+
+      tex.needsUpdate = true;
     };
 
-    drawCabinDoor(90);  // Forward L1/R1 Door
-    drawCabinDoor(905); // Rear L2/R2 Door
-
-    // 4. Two Overwing Emergency Exit Hatch Outlines in Mid-Fuselage (matching image_424a4258.png)
-    [492, 534].forEach((exitX) => {
-      const ex = mapX(exitX, 28);
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.roundRect(ex, 96, 28, 56, 6);
-      ctx.stroke();
-    });
-
-    // 5. Full Row of Dark Rounded-Rectangle Cabin Windows along the Fuselage
-    for (let wx = 152; wx <= 872; wx += 22) {
-      const rx = mapX(wx, 12);
-      // Crisp white window rim halo where windows overlap the red "Lion" billboard letters
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(rx, 112, 12, 19, 4);
-      ctx.stroke();
-      ctx.fill();
+    renderLiveryCanvas();
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        renderLiveryCanvas();
+      });
     }
 
-    // 6. Rear Fuselage Markings ("BOEING 737 MAX 8", "Lion Group", "PK-L...")
-    ctx.save();
-    const rearTextX = isRightSide ? 1024 - 775 : 775;
-    ctx.translate(rearTextX, 94);
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'italic bold 16px "Plus Jakarta Sans", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('BOEING 737 MAX 8', 0, 0);
-    ctx.restore();
-
-    ctx.save();
-    const groupTextX = isRightSide ? 1024 - 745 : 745;
-    ctx.translate(groupTextX, 168);
-    ctx.fillStyle = '#dc2626';
-    ctx.font = 'bold 17px "Plus Jakarta Sans", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Lion Group', 0, 0);
-    ctx.restore();
-
-    ctx.save();
-    const regTextX = isRightSide ? 1024 - 848 : 848;
-    ctx.translate(regTextX, 154);
-    ctx.fillStyle = '#334155';
-    ctx.font = 'bold 14px ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('PK-LMAX', 0, 0);
-    ctx.restore();
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.needsUpdate = true;
     return tex;
   }
 
@@ -4300,7 +5920,7 @@ export class AirportSceneManager {
    *
    * Architectural Features:
    * - Glossy All-White Boeing 737 Fuselage with Pointed Radome Nose & Metallic APU Tail Cone
-   * - Bold Red "Lion" Forward Billboard Livery, Indonesian Flag, Cabin Windows & Overwing Exit Hatches
+   * - Bold Red "Fahrun Air" Forward Billboard Livery above Cabin Windows, Indonesian Flag & Overwing Exit Hatches
    * - Multi-Pane Dark Cockpit V-Windscreen with White Window Frames
    * - Swept Narrow-Body Wings with 3 Underwing Flap-Track Fairings per Wing & Overwing Exit Walkways
    * - Iconic Red Boeing 737 MAX Split-Tip Scimitar Winglets (Upper Winglet Blade + Lower Ventral Strake)
@@ -4421,7 +6041,7 @@ export class AirportSceneManager {
       plane.add(post);
     });
 
-    // 4. Lion Air Fuselage Side Livery Decals (Left +X and Right -X)
+    // 4. Fuselage Side Livery Decals (Left +X and Right -X), contoured to hug the ovoid fuselage barrel
     const leftLiveryMat = new THREE.MeshBasicMaterial({
       map: this.createLionAirSideTexture(false),
       transparent: true,
@@ -4437,15 +6057,31 @@ export class AirportSceneManager {
       polygonOffsetFactor: -2,
     });
 
-    const sideDecalGeo = new THREE.PlaneGeometry(14.0, 2.15);
-    const leftDecal = new THREE.Mesh(sideDecalGeo, leftLiveryMat);
-    leftDecal.position.set(fuseRadius + 0.025, 2.66, 0.65);
-    leftDecal.rotation.y = Math.PI / 2;
+    const buildCurvedSideDecalGeo = (sideSign: 1 | -1) => {
+      const decalGeo = new THREE.PlaneGeometry(14.0, 2.15, 1, 20);
+      decalGeo.rotateY(sideSign * (Math.PI / 2));
+      const posAttr = decalGeo.attributes.position;
+      const decalCenterY = 2.66;
+      const fuseCenterY = 2.53;
+      const fuseRY = 1.41;
+      for (let i = 0; i < posAttr.count; i++) {
+        const localY = posAttr.getY(i);
+        const worldY = decalCenterY + localY;
+        const cosT = Math.max(-0.98, Math.min(0.98, (worldY - fuseCenterY) / fuseRY));
+        const sinT = Math.sqrt(Math.max(0.04, 1 - cosT * cosT));
+        const surfaceX = fuseRadius * sinT + 0.022;
+        posAttr.setX(i, sideSign * surfaceX);
+      }
+      decalGeo.computeVertexNormals();
+      return decalGeo;
+    };
+
+    const leftDecal = new THREE.Mesh(buildCurvedSideDecalGeo(1), leftLiveryMat);
+    leftDecal.position.set(0, 2.66, 0.65);
     plane.add(leftDecal);
 
-    const rightDecal = new THREE.Mesh(sideDecalGeo, rightLiveryMat);
-    rightDecal.position.set(-(fuseRadius + 0.025), 2.66, 0.65);
-    rightDecal.rotation.y = -Math.PI / 2;
+    const rightDecal = new THREE.Mesh(buildCurvedSideDecalGeo(-1), rightLiveryMat);
+    rightDecal.position.set(0, 2.66, 0.65);
     plane.add(rightDecal);
 
     // 5. Dihedral Swept-Back Narrow-Body Wings with Flap-Track Fairings & Sculpted Red Split-Tip Scimitar Winglets
@@ -5168,24 +6804,44 @@ export class AirportSceneManager {
       lvlBadge.position.set(18.5, yPos + 1.0, 5.5 - lvl * 1.4);
       parkGroup.add(lvlBadge);
 
-      if (lvl < 3) {
-        const colRows = [
-          { lx: -9, minZ: -2.5, maxZ: 7.5 },
-          { lx: 0, minZ: -6.5, maxZ: 8.0 },
-          { lx: 9, minZ: -9.5, maxZ: 8.5 },
-        ];
-        colRows.forEach((row) => {
-          for (const cz of [row.minZ, (row.minZ + row.maxZ) * 0.5, row.maxZ]) {
-            const col = new THREE.Mesh(
-              new THREE.CylinderGeometry(0.36, 0.36, 2.8, 10),
-              darkConcreteMat
+      // Structural Pillars (Tiang Gedung Parkir) on ALL 4 levels: Lantai Basement (0), Lantai 1 (1), Lantai 2 (2), and Lantai 3 (3)
+      const colRows = [
+        { lx: -9, minZ: -2.5, maxZ: 7.5 },
+        { lx: 0, minZ: -6.5, maxZ: 8.0 },
+        { lx: 9, minZ: -9.5, maxZ: 8.5 },
+      ];
+      const colHeight = lvl < 3 ? 2.8 : 2.65;
+      colRows.forEach((row, rIdx) => {
+        const zPositions = [row.minZ, (row.minZ + row.maxZ) * 0.5, row.maxZ];
+        zPositions.forEach((cz, cIdx) => {
+          const col = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.36, 0.36, colHeight, 14),
+            darkConcreteMat
+          );
+          col.position.set(row.lx, yPos + colHeight * 0.5, cz);
+          col.castShadow = true;
+          col.receiveShadow = true;
+          parkGroup.add(col);
+
+          // Capital collar cap on top of Lantai 3 pillars
+          if (lvl === 3) {
+            const colCap = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.48, 0.38, 0.18, 14),
+              concreteMat
             );
-            col.position.set(row.lx, yPos + 1.4, cz);
-            col.castShadow = true;
-            parkGroup.add(col);
+            colCap.position.set(row.lx, yPos + colHeight + 0.08, cz);
+            parkGroup.add(colCap);
           }
+
+          // Mount 3D Bosch Horn Speaker on EVERY pillar across Basement, Lantai 1, Lantai 2, and Lantai 3
+          // Orient speaker toward the active parking driveway aisle
+          const yawAngle =
+            cIdx === 0 ? 0 : cIdx === 2 ? Math.PI : rIdx === 0 ? Math.PI / 2 : -Math.PI / 2;
+          const pillarSpeaker = this.createPillarBoschHornSpeaker(0.36, yawAngle, 0.44);
+          pillarSpeaker.position.set(row.lx, yPos + 2.02, cz);
+          parkGroup.add(pillarSpeaker);
         });
-      }
+      });
 
       // Parked Realistic 3D Cars on Basement, Lantai 1, Lantai 2, and Lantai 3 inside Teardrop Footprint
       const carZRows = [
@@ -7056,31 +8712,6 @@ export class AirportSceneManager {
       }
     });
 
-    // 7. Realistic Queueing Cars at Toll Plaza matching reference photo
-    // Red hatchback in Lane 2
-    const redCar = this.createRealisticCar(0xef4444, false, true);
-    redCar.position.set(-6.05, 0.4, 4.8);
-    redCar.rotation.y = Math.PI;
-    tollgateGroup.add(redCar);
-
-    // Black SUV in Lane 3
-    const blackSuv = this.createRealisticCar(0x0f172a, true, true);
-    blackSuv.position.set(-1.95, 0.4, 7.4);
-    blackSuv.rotation.y = Math.PI;
-    tollgateGroup.add(blackSuv);
-
-    // Silver MPV in Lane 4
-    const silverCar = this.createRealisticCar(0xd1d5db, true, true);
-    silverCar.position.set(2.15, 0.4, 2.9);
-    silverCar.rotation.y = Math.PI;
-    tollgateGroup.add(silverCar);
-
-    // Red compact car driving past Lane 6
-    const redPassCar = this.createRealisticCar(0xdc2626, false, true);
-    redPassCar.position.set(10.35, 0.4, 8.8);
-    redPassCar.rotation.y = Math.PI;
-    tollgateGroup.add(redPassCar);
-
     return tollgateGroup;
   }
 
@@ -7555,155 +9186,395 @@ export class AirportSceneManager {
 
   /**
    * 3. HORN SPEAKER (3D Pixar Animation Style — Matches Right Card in Reference Image):
-   * - Weatherproof flared conical reflex horn with thick rounded Pixar bell rim
-   * - Dark acoustic inner horn throat with prominent central cylindrical reflex phase plug
-   * - Rear cylindrical compression driver housing with cooling ribs & heavy-duty U-bracket mount
+   * - Exponentially flared light-grey circular Bosch reflex horn with smooth rolled lip rim (Tampak Depan & Samping)
+   * - Dark acoustic inner horn throat with radial acoustic slots and central re-entrant phase plug bearing the `(H) BOSCH` logo cap
+   * - Rear cylindrical compression driver housing with rounded back dome & 2 downward waterproof PG cable glands
+   * - Heavy-duty light-grey steel U-bracket yoke clamped with metallic hex pivot bolts & washers
    */
+  private getBoschLogoCapTexture(): THREE.CanvasTexture {
+    if (this.boschCapTexture) return this.boschCapTexture;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    // Circular off-white / light-grey Bosch driver cap background
+    ctx.fillStyle = '#e5e9ee';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Subtle outer recessed bevel groove
+    ctx.beginPath();
+    ctx.arc(128, 128, 118, 0, Math.PI * 2);
+    ctx.fillStyle = '#eef2f6';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#b8c0c8';
+    ctx.stroke();
+
+    // Inner subtle ring
+    ctx.beginPath();
+    ctx.arc(128, 128, 106, 0, Math.PI * 2);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#cbd2d9';
+    ctx.stroke();
+
+    // Bosch magneto-armature symbol (circle + H-anker) on the left of "BOSCH"
+    const symX = 56;
+    const symY = 128;
+    const symR = 20;
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 4.2;
+    ctx.beginPath();
+    ctx.arc(symX, symY, symR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Vertical bars inside Bosch emblem
+    ctx.beginPath();
+    ctx.moveTo(symX - 8, symY - 13);
+    ctx.lineTo(symX - 8, symY + 13);
+    ctx.moveTo(symX + 8, symY - 13);
+    ctx.lineTo(symX + 8, symY + 13);
+    // Horizontal bridge + curved armature arcs
+    ctx.moveTo(symX - 8, symY);
+    ctx.lineTo(symX + 8, symY);
+    ctx.stroke();
+
+    // "BOSCH" bold industrial typography
+    ctx.fillStyle = '#4b5563';
+    ctx.font = '900 34px "Arial Black", "Inter", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('BOSCH', 84, 130);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    this.boschCapTexture = tex;
+    return tex;
+  }
+
+  /**
+   * Builds a 3D Pillar-Mounted Bosch Horn Loudspeaker (matching speaker_tiang_depan.jpg & speaker_tiang_samping.jpg)
+   * complete with steel pillar clamp band, U-bracket with hex pivot bolts, rear driver chamber with 2 bottom cable glands,
+   * exponentially flared circular horn bell, and (H) BOSCH center cap.
+   */
+  private createPillarBoschHornSpeaker(
+    pillarRadius: number = 0.36,
+    yawAngle: number = 0,
+    scale: number = 0.44
+  ): THREE.Group {
+    const mountRoot = new THREE.Group();
+    mountRoot.rotation.y = yawAngle;
+
+    // 1. Steel Pillar Mounting Clamp Collar Band around the concrete/steel pillar
+    const clampStrapMat = new THREE.MeshStandardMaterial({
+      color: 0xbec6cf,
+      roughness: 0.35,
+      metalness: 0.65,
+    });
+    const clampBand = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        pillarRadius + 0.018,
+        pillarRadius + 0.018,
+        0.16,
+        20
+      ),
+      clampStrapMat
+    );
+    mountRoot.add(clampBand);
+
+    // Mounting flange plate welded to the front of the pillar clamp band
+    const flangePlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.24, 0.22, 0.06),
+      clampStrapMat
+    );
+    flangePlate.position.set(0, 0, pillarRadius + 0.03);
+    mountRoot.add(flangePlate);
+
+    // 2. Speaker Unit Group attached in front of the pillar flange plate, tilted slightly downward (14 deg)
+    const speakerUnit = new THREE.Group();
+    speakerUnit.position.set(0, 0, pillarRadius + 0.34);
+    speakerUnit.rotation.x = 0.24; // slight downward acoustic aiming tilt
+    speakerUnit.scale.setScalar(scale);
+
+    this.populateBoschHornGeometry(speakerUnit, true);
+    mountRoot.add(speakerUnit);
+
+    return mountRoot;
+  }
+
+  /**
+   * Populates the exact 3D Bosch Horn Loudspeaker geometry (Tampak Depan & Tampak Samping)
+   */
+  private populateBoschHornGeometry(target: THREE.Group, isPillarMounted: boolean = false) {
+    // Authentic Bosch Light-Grey / Off-White polycarbonate & powder-coated aluminum palette
+    const hornOuterMat = new THREE.MeshPhysicalMaterial({
+      color: 0xdce1e7,
+      roughness: 0.28,
+      metalness: 0.12,
+      clearcoat: 0.45,
+      side: THREE.DoubleSide,
+    });
+    const hornInnerMat = new THREE.MeshStandardMaterial({
+      color: 0x252c37,
+      roughness: 0.55,
+      metalness: 0.25,
+      side: THREE.DoubleSide,
+    });
+    const driverHousingMat = new THREE.MeshStandardMaterial({
+      color: 0xd2d7dd,
+      roughness: 0.34,
+      metalness: 0.22,
+    });
+    const bracketGreyMat = new THREE.MeshStandardMaterial({
+      color: 0xc8cfd7,
+      roughness: 0.36,
+      metalness: 0.48,
+    });
+    const hexBoltMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.22,
+      metalness: 0.88,
+    });
+    const darkSlotMat = new THREE.MeshBasicMaterial({
+      color: 0x111827,
+    });
+    const glandGreyMat = new THREE.MeshStandardMaterial({
+      color: 0x7c8594,
+      roughness: 0.42,
+      metalness: 0.35,
+    });
+    const boschCapMat = new THREE.MeshBasicMaterial({
+      map: this.getBoschLogoCapTexture(),
+    });
+
+    // 1. Rear Cylindrical Compression Driver Chamber (Z = -0.92 to -0.34)
+    const driverCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.45, 0.43, 0.58, 28),
+      driverHousingMat
+    );
+    driverCyl.rotation.x = Math.PI / 2;
+    driverCyl.position.set(0, 0, -0.64);
+    driverCyl.castShadow = true;
+    target.add(driverCyl);
+
+    // Rear Smooth Rounded Dome Cap of Driver Chamber (matching tampak samping)
+    const driverBackCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.43, 24, 14),
+      driverHousingMat
+    );
+    driverBackCap.scale.set(1, 1, 0.42);
+    driverBackCap.position.set(0, 0, -0.92);
+    target.add(driverBackCap);
+
+    // 2. Stepped Neck Collar Ring where the U-bracket clamps to the horn body (Z = -0.30)
+    const neckCollar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.50, 0.50, 0.22, 28),
+      driverHousingMat
+    );
+    neckCollar.rotation.x = Math.PI / 2;
+    neckCollar.position.set(0, 0, -0.28);
+    neckCollar.castShadow = true;
+    target.add(neckCollar);
+
+    // 3. Two Waterproof PG Cable Glands protruding downward from the bottom of the rear driver housing (Tampak Samping)
+    [-0.13, 0.13].forEach((gx) => {
+      const glandGroup = new THREE.Group();
+      glandGroup.position.set(gx, -0.41, -0.68);
+      glandGroup.rotation.x = -0.18;
+
+      const glandHex = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.075, 0.075, 0.12, 6),
+        glandGreyMat
+      );
+      glandGroup.add(glandHex);
+
+      const glandBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.058, 0.068, 0.18, 12),
+        glandGreyMat
+      );
+      glandBody.position.y = -0.12;
+      glandGroup.add(glandBody);
+
+      const glandTip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.056, 10, 8),
+        darkSlotMat
+      );
+      glandTip.position.y = -0.21;
+      glandGroup.add(glandTip);
+
+      target.add(glandGroup);
+    });
+
+    // 4. Exponentially Flared Circular Bosch Horn Bell (LatheGeometry from Z = -0.18 to Z = +0.74)
+    const flarePoints: THREE.Vector2[] = [];
+    const numSteps = 14;
+    for (let i = 0; i <= numSteps; i++) {
+      const t = i / numSteps;
+      // Exponential acoustic flare profile matching tampak samping
+      const r = 0.42 + 0.56 * Math.pow(t, 1.65);
+      const z = -0.18 + t * 0.92;
+      flarePoints.push(new THREE.Vector2(r, z));
+    }
+    const hornLatheGeo = new THREE.LatheGeometry(flarePoints, 32);
+    hornLatheGeo.rotateX(Math.PI / 2);
+    const hornBell = new THREE.Mesh(hornLatheGeo, hornOuterMat);
+    hornBell.castShadow = true;
+    target.add(hornBell);
+
+    // Dark Acoustic Inner Horn Throat Cone
+    const innerPoints: THREE.Vector2[] = [];
+    for (let i = 0; i <= numSteps; i++) {
+      const t = i / numSteps;
+      const r = 0.39 + 0.54 * Math.pow(t, 1.65);
+      const z = -0.16 + t * 0.89;
+      innerPoints.push(new THREE.Vector2(r, z));
+    }
+    const innerLatheGeo = new THREE.LatheGeometry(innerPoints, 32);
+    innerLatheGeo.rotateX(Math.PI / 2);
+    const hornInner = new THREE.Mesh(innerLatheGeo, hornInnerMat);
+    target.add(hornInner);
+
+    // 5. Smooth Rolled Outer Lip Ring at the Horn Mouth (Z = +0.74, matching Tampak Depan & Samping)
+    const bellRim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.96, 0.085, 16, 36),
+      hornOuterMat
+    );
+    bellRim.position.set(0, 0, 0.74);
+    bellRim.castShadow = true;
+    target.add(bellRim);
+
+    // 6. Deep Throat Radial Acoustic Vents (10 dark slots around the base of the central reflex core, Tampak Depan)
+    const throatBaseDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(0.41, 24),
+      hornInnerMat
+    );
+    throatBaseDisc.position.set(0, 0, -0.08);
+    target.add(throatBaseDisc);
+
+    for (let s = 0; s < 10; s++) {
+      const angle = (s / 10) * Math.PI * 2;
+      const slot = new THREE.Mesh(
+        new THREE.BoxGeometry(0.045, 0.11, 0.04),
+        darkSlotMat
+      );
+      slot.position.set(
+        Math.cos(angle) * 0.31,
+        Math.sin(angle) * 0.31,
+        -0.05
+      );
+      slot.rotation.z = angle;
+      target.add(slot);
+    }
+
+    // 7. Central Re-Entrant Reflex Phase Plug & "(H) BOSCH" Front Logo Cap (Tampak Depan)
+    const reflexCore = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.25, 0.68, 28),
+      hornOuterMat
+    );
+    reflexCore.rotation.x = Math.PI / 2;
+    reflexCore.position.set(0, 0, 0.25);
+    target.add(reflexCore);
+
+    // Beveled outer collar around the Bosch center cap
+    const capRim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.265, 0.024, 12, 28),
+      hornOuterMat
+    );
+    capRim.position.set(0, 0, 0.59);
+    target.add(capRim);
+
+    // Front circular cap disc with "(H) BOSCH" logo facing +Z out the horn mouth
+    const boschCapDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(0.255, 28),
+      boschCapMat
+    );
+    boschCapDisc.position.set(0, 0, 0.602);
+    target.add(boschCapDisc);
+
+    // 8. Heavy-Duty Light-Grey Steel U-Bracket Yoke & Hex Pivot Bolts (Tampak Samping)
+    // U-bracket side arms extending from the neck collar pivot (Z = -0.28) toward the mounting rear/bottom
+    [-0.53, 0.53].forEach((bx) => {
+      // Side arm bar
+      const uArm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.22, 0.88),
+        bracketGreyMat
+      );
+      uArm.position.set(bx, isPillarMounted ? 0.06 : -0.34, -0.58);
+      uArm.rotation.x = isPillarMounted ? -0.12 : 0.62;
+      target.add(uArm);
+
+      // Metallic washer + Hex Pivot Bolt on both sides of the collar ring
+      const washer = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.13, 0.13, 0.03, 18),
+        hexBoltMat
+      );
+      washer.rotation.z = Math.PI / 2;
+      washer.position.set(bx > 0 ? bx + 0.045 : bx - 0.045, 0, -0.28);
+      target.add(washer);
+
+      const hexBolt = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.085, 0.085, 0.08, 6),
+        hexBoltMat
+      );
+      hexBolt.rotation.z = Math.PI / 2;
+      hexBolt.position.set(bx > 0 ? bx + 0.08 : bx - 0.08, 0, -0.28);
+      target.add(hexBolt);
+    });
+
+    if (isPillarMounted) {
+      // Rear Crossbar of U-Bracket bolting directly onto the Pillar Clamp Flange
+      const rearCrossbar = new THREE.Mesh(
+        new THREE.BoxGeometry(1.14, 0.22, 0.09),
+        bracketGreyMat
+      );
+      rearCrossbar.position.set(0, 0.11, -0.98);
+      target.add(rearCrossbar);
+
+      // Two mounting bolts on the U-bracket rear crossbar
+      [-0.24, 0.24].forEach((mx) => {
+        const mBolt = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.055, 0.055, 0.12, 6),
+          hexBoltMat
+        );
+        mBolt.rotation.x = Math.PI / 2;
+        mBolt.position.set(mx, 0.11, -1.01);
+        target.add(mBolt);
+      });
+    } else {
+      // Bottom Crossbar & Pedestal Post for standalone PA node placement
+      const uBracketBase = new THREE.Mesh(
+        new THREE.BoxGeometry(1.14, 0.12, 0.24),
+        bracketGreyMat
+      );
+      uBracketBase.position.set(0, -0.64, -0.78);
+      target.add(uBracketBase);
+
+      const mountPost = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.13, 0.17, 0.78, 12),
+        bracketGreyMat
+      );
+      mountPost.position.set(0, -1.05, -0.78);
+      target.add(mountPost);
+    }
+  }
+
   private createPixarHornSpeaker(
     parent: THREE.Group,
     ledColor: number,
     speakerId: string
   ) {
-    const hornOuterMat = new THREE.MeshPhysicalMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.26,
-      metalness: 0.22,
-      clearcoat: 0.5,
-    });
-    const hornInnerMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.48,
-      metalness: 0.35,
-      side: THREE.DoubleSide,
-    });
-    const driverHousingMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      roughness: 0.32,
-      metalness: 0.55,
-    });
-    const bracketSteelMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.4,
-      metalness: 0.7,
-    });
-    const chromeAccentMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.18,
-      metalness: 0.85,
-    });
-
-    // Rear Cylindrical Compression Driver Unit (along Z axis, at back Z = -0.75)
-    const driverCyl = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.46, 0.42, 0.68, 22),
-      driverHousingMat
-    );
-    driverCyl.rotation.x = Math.PI / 2;
-    driverCyl.position.set(0, 0, -0.72);
-    driverCyl.castShadow = true;
-    parent.add(driverCyl);
-
-    // Rear rounded cap of compression driver
-    const driverBackCap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.42, 18, 12),
-      bracketSteelMat
-    );
-    driverBackCap.scale.set(1, 1, 0.45);
-    driverBackCap.position.set(0, 0, -1.06);
-    parent.add(driverBackCap);
-
-    // Flared Conical Megaphone Horn Bell (expanding from Z = -0.38 to Z = +0.68)
-    const hornBell = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.98, 0.42, 1.12, 28, 1, true),
-      hornOuterMat
-    );
-    hornBell.rotation.x = Math.PI / 2;
-    hornBell.position.set(0, 0, 0.16);
-    hornBell.castShadow = true;
-    parent.add(hornBell);
-
-    // Dark Inner Acoustic Horn Throat Cone
-    const hornInner = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.93, 0.38, 1.08, 28),
-      hornInnerMat
-    );
-    hornInner.rotation.x = Math.PI / 2;
-    hornInner.position.set(0, 0, 0.14);
-    parent.add(hornInner);
-
-    // Thick Rounded Pixar Bell Rim Lip at the front mouth (Z = +0.72)
-    const bellRim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.96, 0.13, 16, 32),
-      hornOuterMat
-    );
-    bellRim.position.set(0, 0, 0.72);
-    bellRim.castShadow = true;
-    parent.add(bellRim);
-
-    // Central Cylindrical Acoustic Reflex Core / Phase Plug inside the Horn Mouth (as in Reference Image)
-    const reflexCore = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.22, 0.78, 20),
-      driverHousingMat
-    );
-    reflexCore.rotation.x = Math.PI / 2;
-    reflexCore.position.set(0, 0, 0.34);
-    parent.add(reflexCore);
-
-    const reflexTipRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.26, 0.04, 10, 20),
-      chromeAccentMat
-    );
-    reflexTipRing.position.set(0, 0, 0.72);
-    parent.add(reflexTipRing);
-
-    const reflexCap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.26, 16, 12),
-      bracketSteelMat
-    );
-    reflexCap.scale.set(1, 1, 0.45);
-    reflexCap.position.set(0, 0, 0.73);
-    parent.add(reflexCap);
-
-    // Heavy-Duty Pivoting U-Bracket Yoke & Support Post (khas Horn Speaker Outdoor)
-    const uBracketBase = new THREE.Mesh(
-      new THREE.BoxGeometry(1.36, 0.14, 0.22),
-      bracketSteelMat
-    );
-    uBracketBase.position.set(0, -0.78, -0.45);
-    parent.add(uBracketBase);
-
-    [-0.64, 0.64].forEach((bx) => {
-      const uArm = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 0.82, 0.22),
-        bracketSteelMat
-      );
-      uArm.position.set(bx, -0.38, -0.45);
-      parent.add(uArm);
-
-      // Chrome Pivot Bolt on each side of the horn body
-      const bolt = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.11, 0.11, 0.16, 12),
-        chromeAccentMat
-      );
-      bolt.rotation.z = Math.PI / 2;
-      bolt.position.set(bx > 0 ? bx + 0.05 : bx - 0.05, 0, -0.45);
-      parent.add(bolt);
-    });
-
-    // Vertical Mounting Post under the U-Bracket
-    const mountPost = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.14, 0.18, 0.85, 12),
-      bracketSteelMat
-    );
-    mountPost.position.set(0, -1.22, -0.45);
-    parent.add(mountPost);
+    // Build the authentic Bosch Horn Loudspeaker 3D geometry
+    this.populateBoschHornGeometry(parent, false);
 
     // Status LED Halo Collar around the Horn Neck
     const ledMat = new THREE.MeshBasicMaterial({ color: ledColor });
     const ledRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.58, 0.075, 10, 24),
+      new THREE.TorusGeometry(0.54, 0.065, 10, 24),
       ledMat
     );
-    ledRing.position.set(0, 0, -0.32);
+    ledRing.position.set(0, 0, -0.28);
     ledRing.userData = { isStatusLed: true };
     parent.add(ledRing);
 
@@ -8316,18 +10187,23 @@ export class AirportSceneManager {
     this.setSimulationIncident(null, [], false);
   }
 
-  public setCutawayMode(mode: 'none' | 'lantai1' | 'lantai2') {
+  public setCutawayMode(mode: 'none' | 'lantai1' | 'lantai2' | 'lantai3') {
     this.isLantai1Cutaway = mode === 'lantai1';
     this.isLantai2Cutaway = mode === 'lantai2';
+    this.isLantai3Cutaway = mode === 'lantai3';
 
     const showRoofs = mode === 'none';
     const showLantai2 = mode !== 'lantai1';
+    const showLantai3 = mode === 'none' || mode === 'lantai3';
 
     this.upperRoofMeshes.forEach((mesh) => {
       mesh.visible = showRoofs;
     });
     this.lantai2Meshes.forEach((mesh) => {
       mesh.visible = showLantai2;
+    });
+    this.lantai3Meshes.forEach((mesh) => {
+      mesh.visible = showLantai3;
     });
 
     this.updateHighlightMaterials();
@@ -8338,7 +10214,7 @@ export class AirportSceneManager {
   }
 
   private updateHighlightMaterials() {
-    const isAnyCutaway = this.isLantai1Cutaway || this.isLantai2Cutaway;
+    const isAnyCutaway = this.isLantai1Cutaway || this.isLantai2Cutaway || this.isLantai3Cutaway;
     this.macroZones.forEach((zone) => {
       const meshes = this.zoneMeshes.get(zone.id);
       if (!meshes) return;
@@ -8369,8 +10245,8 @@ export class AirportSceneManager {
           mat.roughness = 0.15;
         } else {
           mat.color.set(zone.color);
-          if (this.isLantai1Cutaway) {
-            mat.opacity = 0.06;
+          if (this.isLantai1Cutaway || this.isLantai3Cutaway) {
+            mat.opacity = 0.0;
           } else if (this.isLantai2Cutaway) {
             mat.opacity = zone.id === 'macro-4' ? 0.12 : 0.14;
           } else {
@@ -8384,10 +10260,18 @@ export class AirportSceneManager {
 
   /**
    * Camera Presets for Sultan Hasanuddin Makassar (WAAA):
-   * Semua Terminal (with full roofs), Mockup Lantai 1, Mockup Lantai 2, Terminal Utama,
+   * Semua Terminal (with full roofs), Mockup Lantai 1, Mockup Lantai 2, Mockup Lantai 3, Terminal Utama,
    * Depan Terminal & Jalanan, Terminal Eksisting, Terminal Selatan, Apron & Garbarata, Gedung Parkir, ATC Tower
    */
   public setCameraPreset(preset: CameraPresetType) {
+    // Restore standard camera FOV and top-down Room 1 state when switching presets
+    if (this.camera.fov !== 44) {
+      this.camera.fov = 44;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.r1CeilingGroup) this.r1CeilingGroup.visible = false;
+    if (this.r1TopLabelsGroup) this.r1TopLabelsGroup.visible = true;
+
     switch (preset) {
       case 'overview':
         this.setCutawayMode('none');
@@ -8425,6 +10309,14 @@ export class AirportSceneManager {
         this.setCutawayMode('lantai2');
         this.targetControlsTarget = new THREE.Vector3(-6, 4.8, -6);
         this.targetCameraPos = new THREE.Vector3(-6, 84, -96);
+        break;
+      case 'lantai3':
+        // Matches Reference Cutaway Image: Mockup Lt. 3 Terminal Utama (https://i.ibb.co.com/twXSgvBK/Gemini-Generated-Image-yuv3ynyuv3ynyuv3.jpg)
+        this.selectedZoneId = null;
+        this.callbacks.onSelectZone(null);
+        this.setCutawayMode('lantai3');
+        this.targetControlsTarget = new THREE.Vector3(24.0, 9.8, -24.5);
+        this.targetCameraPos = new THREE.Vector3(24.0, 42.5, -62.5);
         break;
       case 'utama':
       case 'dom_dep':
@@ -8517,6 +10409,13 @@ export class AirportSceneManager {
     this.setCutawayMode('lantai1');
     this.highlightEksistingRoomCode(roomCode);
 
+    if (this.camera.fov !== 44) {
+      this.camera.fov = 44;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.r1CeilingGroup) this.r1CeilingGroup.visible = false;
+    if (this.r1TopLabelsGroup) this.r1TopLabelsGroup.visible = true;
+
     const roomTargets: Record<number, { x: number; z: number; h: number; dz: number }> = {
       1: { x: 7.98, z: 12.80, h: 6.2,  dz: 2.2 },  // R. Standby (Green-marked room bottom-center)
       2: { x: 2.3,  z: 15.2,  h: 9.2,  dz: 4.2 },  // Storage
@@ -8545,6 +10444,19 @@ export class AirportSceneManager {
     this.callbacks.onSelectZone(null);
     this.setCutawayMode('lantai1');
 
+    const isIndoorView = direction !== 'top';
+
+    // Show realistic acoustic ceiling grid & lights when inside Room 1; show green box & labels when in Top view
+    if (this.r1CeilingGroup) this.r1CeilingGroup.visible = isIndoorView;
+    if (this.r1TopLabelsGroup) this.r1TopLabelsGroup.visible = !isIndoorView;
+
+    // Wide-angle 62-deg FOV for realistic indoor room photography framing; 44-deg for top-down
+    const targetFov = isIndoorView ? 62 : 44;
+    if (this.camera.fov !== targetFov) {
+      this.camera.fov = targetFov;
+      this.camera.updateProjectionMatrix();
+    }
+
     // Keep floor tile natural (un-tinted) during interior eye-level 3D views
     this.highlightEksistingRoomCode(direction === 'top' ? 1 : null);
 
@@ -8556,30 +10468,90 @@ export class AirportSceneManager {
 
     switch (direction) {
       case 'depan':
-        // Looking towards Sisi Depan (+X wall at X = 8.70: PC desk, tilted blue CCTV TV, water dispenser, black floral fridge, 8 blue water gallons, stainless bin)
-        this.targetCameraPos = new THREE.Vector3(7.38, 1.48, 12.78);
-        this.targetControlsTarget = new THREE.Vector3(8.56, 1.26, 12.78);
+        // Matches Tampilan-Depan.jpg: looking from back-left (-X) towards +X wall (PC desk, tilted CCTV TV, dispenser, floral fridge, 8 blue water gallons, tripod, stainless bin)
+        this.targetCameraPos = new THREE.Vector3(7.42, 1.44, 12.76);
+        this.targetControlsTarget = new THREE.Vector3(8.56, 1.26, 12.82);
         break;
       case 'belakang':
-        // Looking towards Sisi Belakang (-X side at X = 7.25: 4-seater green/teal waiting bench on right, open hallway with black standing TV totem & red APAR on left)
-        this.targetCameraPos = new THREE.Vector3(8.54, 1.48, 12.82);
-        this.targetControlsTarget = new THREE.Vector3(7.12, 1.24, 12.78);
+        // Matches Tampilan-Belakang.jpg: looking from +X side towards -X wall & open hallway (4-seater green/teal bench, coffee table, standing TV totem & red APAR in hallway)
+        this.targetCameraPos = new THREE.Vector3(8.46, 1.44, 12.92);
+        this.targetControlsTarget = new THREE.Vector3(7.15, 1.22, 12.76);
         break;
       case 'kanan':
-        // Looking towards Sisi Kanan (+Z wall at Z = 13.60: open glass door to Room 4 Control Room on left, black 3-tier cabinet in middle, 3-pane dark window on right)
-        this.targetCameraPos = new THREE.Vector3(7.96, 1.48, 12.14);
-        this.targetControlsTarget = new THREE.Vector3(7.92, 1.28, 13.62);
+        // Matches Tampilan-Kanan.jpg: looking from -Z side towards +Z wall (open glass door to Control Room on left, black 3-tier cabinet in center, 3-panel dark window on right)
+        this.targetCameraPos = new THREE.Vector3(8.02, 1.44, 12.22);
+        this.targetControlsTarget = new THREE.Vector3(7.94, 1.26, 13.62);
         break;
       case 'kiri':
-        // Looking towards Sisi Kiri (-Z wall at Z = 12.00: whiteboard, black wall TV, grey 2-seater sofa, black slatted coffee table with box/bottles, 2 blue swivel chairs)
-        this.targetCameraPos = new THREE.Vector3(7.96, 1.48, 13.44);
-        this.targetControlsTarget = new THREE.Vector3(7.98, 1.24, 12.05);
+        // Matches Tampilan-kiri.jpg: looking from +Z side towards -Z wall (whiteboard, black wall TV, grey sofa, black slatted table, 2 blue swivel chairs, PC desk & fridge on right)
+        this.targetCameraPos = new THREE.Vector3(7.94, 1.44, 13.42);
+        this.targetControlsTarget = new THREE.Vector3(7.98, 1.22, 12.06);
         break;
       case 'top':
       default:
         // Overhead 3D view of the Green-Marked Room 1 with "depan", "belakang", "kanan", "Kiri" labels
         this.targetCameraPos = new THREE.Vector3(7.98, 5.8, 10.8);
         this.targetControlsTarget = new THREE.Vector3(7.98, 1.15, 12.80);
+        break;
+    }
+  }
+
+  /**
+   * Focuses the 3D camera onto a specific node of the Terminal Eksisting Public Address Block Diagram
+   * (WIKA-ABD-BSH-ES-TE-0001C-00, 0002-00, 0102-00, 0103-00) on Lantai 1 or Lantai 2
+   */
+  public focusEksistingPaNode(
+    nodeId: 'mdf_ss' | 'jbss_1_3' | 'jbss_1_7' | 'jbss_2_2' | 'jbss_2_4' | 'lt1_overview' | 'lt2_overview'
+  ) {
+    this.selectedZoneId = null;
+    this.callbacks.onSelectZone(null);
+    if (this.camera.fov !== 44) {
+      this.camera.fov = 44;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.r1CeilingGroup) this.r1CeilingGroup.visible = false;
+    if (this.r1TopLabelsGroup) this.r1TopLabelsGroup.visible = true;
+
+    switch (nodeId) {
+      case 'mdf_ss':
+        this.setCutawayMode('lantai1');
+        this.highlightEksistingRoomCode(4);
+        this.targetControlsTarget = new THREE.Vector3(8.0, 1.6, 15.65);
+        this.targetCameraPos = new THREE.Vector3(8.0, 12.5, 6.5);
+        break;
+      case 'jbss_1_3':
+        this.setCutawayMode('lantai1');
+        this.highlightEksistingRoomCode(null);
+        this.targetControlsTarget = new THREE.Vector3(36.0, 1.4, 5.4);
+        this.targetCameraPos = new THREE.Vector3(36.0, 26.0, -14.0);
+        break;
+      case 'jbss_1_7':
+        this.setCutawayMode('lantai1');
+        this.highlightEksistingRoomCode(null);
+        this.targetControlsTarget = new THREE.Vector3(4.5, 1.4, 5.4);
+        this.targetCameraPos = new THREE.Vector3(4.5, 26.0, -14.0);
+        break;
+      case 'lt1_overview':
+        this.setCutawayMode('lantai1');
+        this.highlightEksistingRoomCode(null);
+        this.targetControlsTarget = new THREE.Vector3(21.0, 1.4, 5.5);
+        this.targetCameraPos = new THREE.Vector3(21.0, 44.0, -24.0);
+        break;
+      case 'jbss_2_2':
+        this.setCutawayMode('lantai2');
+        this.targetControlsTarget = new THREE.Vector3(39.0, 5.4, 7.2);
+        this.targetCameraPos = new THREE.Vector3(39.0, 28.0, -12.0);
+        break;
+      case 'jbss_2_4':
+        this.setCutawayMode('lantai2');
+        this.targetControlsTarget = new THREE.Vector3(7.5, 5.4, 7.2);
+        this.targetCameraPos = new THREE.Vector3(7.5, 28.0, -12.0);
+        break;
+      case 'lt2_overview':
+      default:
+        this.setCutawayMode('lantai2');
+        this.targetControlsTarget = new THREE.Vector3(22.0, 5.2, 6.8);
+        this.targetCameraPos = new THREE.Vector3(22.0, 46.0, -24.0);
         break;
     }
   }

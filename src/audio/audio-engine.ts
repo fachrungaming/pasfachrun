@@ -616,7 +616,6 @@ class AirportAudioEngine {
   private speakText(text: string, langCode: string, returnPromise = true): Promise<void> {
     return new Promise((resolve) => {
       if (!('speechSynthesis' in window)) {
-        console.warn('SpeechSynthesis not supported');
         resolve();
         return;
       }
@@ -767,8 +766,8 @@ class AirportAudioEngine {
 
         this.startVuMeterLoop();
         return true;
-      } catch (err) {
-        console.warn('Real microphone not accessible or denied, falling back to simulated mic DSP:', err);
+      } catch {
+        // Fallback to simulated mic DSP
       }
     }
 

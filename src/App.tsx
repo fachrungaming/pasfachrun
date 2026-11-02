@@ -91,12 +91,12 @@ export default function App() {
                 hasCustomFile: true,
               },
             }));
-          } catch (e) {
-            console.warn('Could not restore track', record.id, e);
+          } catch {
+            // Track could not be restored
           }
         }
-      } catch (err) {
-        console.warn('Failed to load audio tracks from DB:', err);
+      } catch {
+        // Ignore IndexedDB load error
       }
     }
     restoreSavedTracks();
@@ -209,8 +209,7 @@ export default function App() {
         },
       }));
       showToast(`✅ Berhasil mengunggah berkas ${meta.name} (${meta.sizeFormatted}) untuk ${INITIAL_CUSTOM_TRACKS[type].title}.`);
-    } catch (err) {
-      console.error('Failed to load audio file:', err);
+    } catch {
       showToast('❌ Gagal membaca berkas audio: Format tidak didukung.');
     }
   };
