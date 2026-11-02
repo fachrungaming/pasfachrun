@@ -19,6 +19,8 @@ class AirportAudioEngine {
   private bgmBufferSource: AudioBufferSourceNode | null = null;
   private activeBroadcastSource: AudioBufferSourceNode | null = null;
   private activeBroadcastType: AudioTrackType | null = null;
+  private broadcastOscillators: OscillatorNode[] = [];
+  private broadcastRunId: number = 0;
 
   // Active audio state
   private isBgmPlaying: boolean = false;
@@ -94,6 +96,17 @@ class AirportAudioEngine {
   }
 
   /**
+   * Returns true if Adzan (Level 2) or Indonesia Raya (Level 3) or Emergency (Level 1)
+   * is currently active (ON), automatically muting lower priority levels.
+   */
+  public isPriorityMuted(targetLevel: PriorityLevel): boolean {
+    if (this.currentPriority === 1 && targetLevel > 1) return true;
+    if (this.currentPriority === 2 && targetLevel > 2) return true;
+    if (this.currentPriority === 3 && targetLevel > 3) return true;
+    return false;
+  }
+
+  /**
    * Load and decode an uploaded custom audio file (BGM, Indonesia Raya, Adzan Biasa, Adzan Subuh)
    * High sample-rate decoding with Web Audio API.
    */
@@ -161,54 +174,76 @@ class AirportAudioEngine {
     return this.activeBroadcastType;
   }
 
-  public stopActiveCustomBroadcast() {
+  private cleanupBroadcastAudioNodes() {
+    this.broadcastRunId++;
     if (this.activeBroadcastSource) {
       try {
+        this.activeBroadcastSource.onended = null;
         this.activeBroadcastSource.stop();
       } catch {
         // ignore
       }
       this.activeBroadcastSource = null;
     }
+    this.broadcastOscillators.forEach((osc) => {
+      try {
+        osc.stop();
+      } catch {
+        // ignore
+      }
+    });
+    this.broadcastOscillators = [];
     this.activeBroadcastType = null;
-    this.setPriority(6);
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
+
+  public stopActiveCustomBroadcast() {
+    this.cleanupBroadcastAudioNodes();
+    if (this.currentPriority !== 1) {
+      this.setPriority(6);
+    }
   }
 
   /**
-   * Automatic Audio Ducking logic based on 6-tier EN 54-16 Priority Matrix:
-   * Level 1: Emergency -> Mute everything below (BGM, Announcements = 0)
-   * Level 2: Care Call -> Duck BGM to 0.02, Announcements ducked
-   * Level 3: FIDS -> Duck BGM to 0.04
-   * Level 4: Adzan -> Duck BGM to 0
-   * Level 5: Indonesia Raya -> Duck BGM to 0
-   * Level 6: BGM -> Normal 0.20
+   * Automatic Audio Mute & Ducking logic based on 6-tier EN 54-16 Priority Matrix:
+   * Level 1: Emergency -> Total Mute everything below (Levels 2–6 = 0)
+   * Level 2: Adzan Terjadwal -> Auto-Mute everything below (Levels 3–6 = 0, BGM = 0)
+   * Level 3: Indonesia Raya -> Auto-Mute everything below (Levels 4–6 = 0, BGM = 0)
+   * Level 4: Care Call -> Duck BGM to 0.02 (-24 dB)
+   * Level 5: FIDS -> Duck BGM to 0.035 (-18 dB)
+   * Level 6: BGM -> Normal 0.20 (0 dB)
    */
   private applyPriorityDucking() {
     if (!this.ctx || !this.bgmGain || !this.announcementGain) return;
     const now = this.ctx.currentTime;
 
     switch (this.currentPriority) {
-      case 1: // Emergency Override
-        this.bgmGain.gain.setTargetAtTime(0.0001, now, 0.05); // near instant
-        this.announcementGain.gain.setTargetAtTime(0.0001, now, 0.05);
+      case 1: // Emergency Override (Mutes 2-6)
+        this.bgmGain.gain.setTargetAtTime(0.00001, now, 0.03);
+        this.announcementGain.gain.setTargetAtTime(0.00001, now, 0.03);
+        if (this.micGain) this.micGain.gain.setTargetAtTime(0.00001, now, 0.03);
         if (this.emergencyGain) this.emergencyGain.gain.setTargetAtTime(1.0, now, 0.05);
         break;
-      case 2: // Care Call
+      case 2: // Adzan Terjadwal (Auto-Mutes 3-6 including Indonesia Raya, Care Call, FIDS, BGM)
+      case 3: // Indonesia Raya (Auto-Mutes 4-6 including Care Call, FIDS, BGM)
+        this.bgmGain.gain.setTargetAtTime(0.00001, now, 0.05); // Complete Auto-Mute of BGM
+        if (this.micGain) this.micGain.gain.setTargetAtTime(0.00001, now, 0.05); // Auto-Mute lower-priority live mic
+        this.announcementGain.gain.setTargetAtTime(0.95, now, 0.08);
+        break;
+      case 4: // Care Call (Medis / Keamanan)
         this.bgmGain.gain.setTargetAtTime(0.02, now, 0.2);
+        if (this.micGain) this.micGain.gain.setTargetAtTime(0.9, now, 0.08);
         this.announcementGain.gain.setTargetAtTime(0.95, now, 0.1);
         break;
-      case 3: // FIDS
+      case 5: // FIDS (Informasi Penerbangan)
         this.bgmGain.gain.setTargetAtTime(0.035, now, 0.3);
-        this.announcementGain.gain.setTargetAtTime(0.9, now, 0.1);
-        break;
-      case 4: // Adzan
-      case 5: // Indonesia Raya
-        this.bgmGain.gain.setTargetAtTime(0.0001, now, 0.4);
         this.announcementGain.gain.setTargetAtTime(0.9, now, 0.1);
         break;
       case 6: // BGM Only
       default:
-        this.bgmGain.gain.setTargetAtTime(0.2, now, 0.8);
+        this.bgmGain.gain.setTargetAtTime(0.2, now, 0.6);
         this.announcementGain.gain.setTargetAtTime(0.9, now, 0.2);
         break;
     }
@@ -242,6 +277,7 @@ class AirportAudioEngine {
 
         osc.start(noteStart);
         osc.stop(noteStart + noteDuration + 0.65);
+        this.broadcastOscillators.push(osc);
       });
 
       const totalDuration = notes.length * noteDuration + 0.7;
@@ -257,6 +293,7 @@ class AirportAudioEngine {
    */
   public startEmergencyEvacuation(voiceText?: string) {
     const ctx = this.initContext();
+    this.cleanupBroadcastAudioNodes();
     this.setPriority(1);
 
     if (this.emergencyInterval) {
@@ -350,7 +387,7 @@ class AirportAudioEngine {
       playSiren();
       this.simInterval = window.setInterval(playSiren, 1300);
     } else if (soundType === 'security_chime') {
-      this.setPriority(2);
+      this.setPriority(4);
       // High-priority triple security alert chord (A5 - F5 - D5)
       const tones = [880, 698.46, 587.33];
       tones.forEach((freq, idx) => {
@@ -368,7 +405,7 @@ class AirportAudioEngine {
       });
       await new Promise((r) => setTimeout(r, 650));
     } else if (soundType === 'medical_paging') {
-      this.setPriority(2);
+      this.setPriority(4);
       // Dual-tone urgent hospital paging chime (523Hz - 784Hz)
       const tones = [523.25, 783.99];
       tones.forEach((freq, idx) => {
@@ -428,65 +465,98 @@ class AirportAudioEngine {
   }
 
   /**
-   * Level 3: FIDS Airline Text-to-Speech Announcement
+   * Level 5: FIDS Airline Text-to-Speech Announcement
+   * Automatically Muted if Emergency (Level 1), Adzan (Level 2), Indonesia Raya (Level 3), or Care Call (Level 4) is ON.
    */
   public async playFlightAnnouncement(textId: string, textEn?: string): Promise<void> {
     this.initContext();
-    this.setPriority(3);
+    if (this.currentPriority < 5) {
+      // Lower priority automatically Muted while higher priority (Adzan / Indonesia Raya / Emergency / Care Call) is ON
+      return;
+    }
+
+    const runId = ++this.broadcastRunId;
+    this.setPriority(5);
 
     // 1. Play Airport 4-note chime first
     await this.playAirportChime();
+    if (this.broadcastRunId !== runId || this.currentPriority !== 5) return;
 
     // 2. Speak Indonesian
     await this.speakText(textId, 'id-ID');
+    if (this.broadcastRunId !== runId || this.currentPriority !== 5) return;
 
-    // 3. If English text present, chime and speak English
+    // 3. If English text present, speak English
     if (textEn) {
       await new Promise((r) => setTimeout(r, 600));
+      if (this.broadcastRunId !== runId || this.currentPriority !== 5) return;
       await this.speakText(textEn, 'en-US');
     }
 
     // Reset back to BGM priority once done
-    this.setPriority(6);
+    if (this.broadcastRunId === runId && this.currentPriority === 5) {
+      this.setPriority(6);
+    }
   }
 
   /**
-   * Level 2: Care Call / Security paging announcement
+   * Level 4: Care Call / Security paging announcement
+   * Automatically Muted if Emergency (Level 1), Adzan (Level 2), or Indonesia Raya (Level 3) is ON.
    */
   public async playCareCall(message: string): Promise<void> {
     this.initContext();
-    this.setPriority(2);
+    if (this.currentPriority < 4) {
+      // Automatically Muted when Level 1, Level 2 (Adzan), or Level 3 (Indonesia Raya) is ON
+      return;
+    }
+
+    const runId = ++this.broadcastRunId;
+    this.setPriority(4);
     await this.playAirportChime();
+    if (this.broadcastRunId !== runId || this.currentPriority !== 4) return;
     await this.speakText(message, 'id-ID');
-    this.setPriority(6);
+    if (this.broadcastRunId === runId && this.currentPriority === 4) {
+      this.setPriority(6);
+    }
   }
 
   /**
-   * Level 4: Scheduled Adzan Broadcast (Regular or Subuh)
+   * Level 2: Scheduled Adzan Broadcast (Regular or Subuh)
+   * Automatically preempts and Mutes all priorities below it (Level 3 Indonesia Raya, Level 4 Care Call, Level 5 FIDS, Level 6 BGM).
    */
   public async playScheduledAdzan(isSubuh: boolean = false): Promise<void> {
     const ctx = this.initContext();
-    this.stopActiveCustomBroadcast();
-    this.setPriority(4); // Duck BGM to 0
+    if (this.currentPriority === 1) return; // Cannot override Emergency Level 1
 
+    // Preempt & Mute any lower-priority broadcast (e.g. Level 3 Indonesia Raya, Level 4 Care Call, Level 5 FIDS, Level 6 BGM)
+    this.cleanupBroadcastAudioNodes();
+    const runId = ++this.broadcastRunId;
     const trackKey: AudioTrackType = isSubuh ? 'adzanSubuh' : 'adzanRegular';
+    this.activeBroadcastType = trackKey;
+    this.setPriority(2); // Auto-Mutes Levels 3, 4, 5, 6
+
     const customBuffer = this.customAudioBuffers.get(trackKey);
 
     if (customBuffer) {
-      this.activeBroadcastType = trackKey;
       const source = ctx.createBufferSource();
       source.buffer = customBuffer;
       if (this.announcementGain) source.connect(this.announcementGain);
 
       return new Promise((resolve) => {
         source.onended = () => {
+          if (this.broadcastRunId !== runId) {
+            resolve();
+            return;
+          }
           this.activeBroadcastSource = null;
-          this.activeBroadcastType = null;
           const msg = isSubuh
             ? 'Waktu sholat Subuh telah tiba untuk wilayah bandara dan sekitarnya.'
             : 'Waktu sholat telah tiba untuk wilayah bandara dan sekitarnya.';
           this.speakText(msg, 'id-ID').then(() => {
-            this.setPriority(6);
+            if (this.broadcastRunId === runId && this.currentPriority === 2) {
+              this.activeBroadcastType = null;
+              this.setPriority(6);
+            }
             resolve();
           });
         };
@@ -502,8 +572,9 @@ class AirportAudioEngine {
     const phrases = isSubuh ? 5 : 4;
 
     for (let p = 0; p < phrases; p++) {
-      if (this.currentPriority !== 4) break;
+      if (this.broadcastRunId !== runId || this.currentPriority !== 2) return;
       for (const freq of rootNotes) {
+        if (this.broadcastRunId !== runId || this.currentPriority !== 2) return;
         const osc = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -526,42 +597,62 @@ class AirportAudioEngine {
         osc2.start(now);
         osc.stop(now + 1.3);
         osc2.stop(now + 1.3);
+        this.broadcastOscillators.push(osc, osc2);
 
         await new Promise((r) => setTimeout(r, 400));
       }
     }
 
+    if (this.broadcastRunId !== runId || this.currentPriority !== 2) return;
     const reminder = isSubuh
       ? 'Waktu sholat Subuh telah tiba untuk wilayah bandara dan sekitarnya.'
       : 'Waktu sholat telah tiba untuk wilayah bandara dan sekitarnya.';
     await this.speakText(reminder, 'id-ID');
-    this.setPriority(6);
+    if (this.broadcastRunId === runId && this.currentPriority === 2) {
+      this.activeBroadcastType = null;
+      this.setPriority(6);
+    }
   }
 
   /**
-   * Level 5: Indonesia Raya Scheduled Broadcast
+   * Level 3: Indonesia Raya Scheduled Broadcast
+   * Automatically Muted if Emergency (Level 1) or Adzan (Level 2) is ON.
+   * When ON, automatically preempts and Mutes all priorities below it (Level 4 Care Call, Level 5 FIDS, Level 6 BGM).
    */
   public async playIndonesiaRaya(): Promise<void> {
     const ctx = this.initContext();
-    this.stopActiveCustomBroadcast();
-    this.setPriority(5); // Duck BGM to 0
+    if (this.currentPriority < 3) {
+      // Automatically Muted because Emergency (Level 1) or Adzan (Level 2) is currently ON
+      return;
+    }
+
+    // Preempt & Mute any lower-priority broadcast (Level 4 Care Call, Level 5 FIDS, Level 6 BGM)
+    this.cleanupBroadcastAudioNodes();
+    const runId = ++this.broadcastRunId;
+    this.activeBroadcastType = 'indonesiaRaya';
+    this.setPriority(3); // Auto-Mutes Levels 4, 5, 6
 
     const customAnthem = this.customAudioBuffers.get('indonesiaRaya');
     if (customAnthem) {
-      this.activeBroadcastType = 'indonesiaRaya';
       const source = ctx.createBufferSource();
       source.buffer = customAnthem;
       if (this.announcementGain) source.connect(this.announcementGain);
 
       return new Promise((resolve) => {
         source.onended = () => {
+          if (this.broadcastRunId !== runId) {
+            resolve();
+            return;
+          }
           this.activeBroadcastSource = null;
-          this.activeBroadcastType = null;
           this.speakText(
             'Pemutaran lagu kebangsaan Indonesia Raya telah selesai. Terima kasih kepada seluruh pengguna jasa bandara.',
             'id-ID'
           ).then(() => {
-            this.setPriority(6);
+            if (this.broadcastRunId === runId && this.currentPriority === 3) {
+              this.activeBroadcastType = null;
+              this.setPriority(6);
+            }
             resolve();
           });
         };
@@ -582,7 +673,7 @@ class AirportAudioEngine {
     ];
 
     for (const note of anthemMelody) {
-      if (this.currentPriority !== 5) break;
+      if (this.broadcastRunId !== runId || this.currentPriority !== 3) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       const now = ctx.currentTime;
@@ -599,15 +690,20 @@ class AirportAudioEngine {
 
       osc.start(now);
       osc.stop(now + note.d + 0.1);
+      this.broadcastOscillators.push(osc);
 
       await new Promise((r) => setTimeout(r, note.d * 1000));
     }
 
+    if (this.broadcastRunId !== runId || this.currentPriority !== 3) return;
     await this.speakText(
       'Pemberitahuan kepada seluruh pengguna jasa bandara, mari bersama-sama mendengarkan lagu kebangsaan Indonesia Raya.',
       'id-ID'
     );
-    this.setPriority(6);
+    if (this.broadcastRunId === runId && this.currentPriority === 3) {
+      this.activeBroadcastType = null;
+      this.setPriority(6);
+    }
   }
 
   /**
@@ -655,6 +751,7 @@ class AirportAudioEngine {
     if (this.isBgmPlaying) return;
     const ctx = this.initContext();
     this.isBgmPlaying = true;
+    this.applyPriorityDucking();
 
     // 1. Check if user uploaded a custom BGM track
     const customBgm = this.customAudioBuffers.get('bgm');
@@ -743,13 +840,20 @@ class AirportAudioEngine {
   }
 
   /**
-   * PTT (Push To Talk) Live Paging Station Simulation & Real Mic Input
+   * PTT (Push To Talk) Live Paging Station Simulation & Real Mic Input (Priority Level 4)
+   * Automatically Muted if Emergency (Level 1), Adzan (Level 2), or Indonesia Raya (Level 3) is ON.
    */
   public async startLivePaging(useRealMic: boolean = true): Promise<boolean> {
+    if (this.currentPriority < 4) {
+      // Automatically Muted when Level 1, Level 2 (Adzan), or Level 3 (Indonesia Raya) is ON
+      this.onVuMeterCallbacks.forEach((cb) => cb(0));
+      return false;
+    }
     const ctx = this.initContext();
-    this.setPriority(2); // Care Call / Operator Live Paging priority
+    this.setPriority(4); // Care Call / Operator Live Paging priority (Level 4)
 
     await this.playAirportChime();
+    if (this.currentPriority !== 4) return false;
 
     if (useRealMic && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
@@ -795,7 +899,9 @@ class AirportAudioEngine {
     }
 
     this.onVuMeterCallbacks.forEach((cb) => cb(0));
-    this.setPriority(6);
+    if (this.currentPriority === 4) {
+      this.setPriority(6);
+    }
   }
 
   private startVuMeterLoop() {

@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Play,
+  Square,
   RotateCcw,
   Minimize2,
   Maximize2,
@@ -101,6 +102,12 @@ export const DockControls: React.FC<DockControlsProps> = ({
   // Fault simulation state
   const [simulatedFaultSpeakerId, setSimulatedFaultSpeakerId] = useState<string>('SPK-P501');
 
+  // Check if Adzan (Level 2), Indonesia Raya (Level 3), or Emergency (Level 1) is currently ON
+  const isAdzanActive = telemetry.activePriorityLevel === 2;
+  const isIndonesiaRayaActive = telemetry.activePriorityLevel === 3;
+  const isHighPriorityMuteActive =
+    telemetry.activePriorityLevel === 1 || isAdzanActive || isIndonesiaRayaActive;
+
   // Subscribe to VU meter
   useEffect(() => {
     const unsub = audioEngine.subscribeVuMeter((lvl) => {
@@ -119,8 +126,9 @@ export const DockControls: React.FC<DockControlsProps> = ({
     setSelectedZoneIds(['macro-1', 'macro-2', 'macro-3', 'macro-4', 'macro-5']);
   };
 
-  // Push-To-Talk Microphone handler
+  // Push-To-Talk Microphone handler (Priority Level 4)
   const handleStartPaging = async () => {
+    if (isHighPriorityMuteActive) return;
     setIsPagingActive(true);
     await audioEngine.startLivePaging(useRealMic);
   };
@@ -130,8 +138,9 @@ export const DockControls: React.FC<DockControlsProps> = ({
     audioEngine.stopLivePaging();
   };
 
-  // SIP Dialpad Action
+  // SIP Dialpad Action (Priority Level 4)
   const handleSipCall = async () => {
+    if (isHighPriorityMuteActive) return;
     setIsSipCalling(true);
     // Find zone matching extension
     const matchedZone = macroZones.find((z) => z.sipExtension === sipNumber);
@@ -147,8 +156,9 @@ export const DockControls: React.FC<DockControlsProps> = ({
     setIsSipCalling(false);
   };
 
-  // Flight announcement trigger
+  // Flight announcement trigger (Priority Level 5)
   const handleBroadcastFlight = async (flight: FlightAnnouncement) => {
+    if (telemetry.activePriorityLevel < 5) return;
     setIsBroadcasting(true);
     let idText = '';
     let enText = '';
@@ -171,9 +181,9 @@ export const DockControls: React.FC<DockControlsProps> = ({
     setIsBroadcasting(false);
   };
 
-  // Custom announcement broadcast
+  // Custom announcement broadcast (Priority Level 5)
   const handleBroadcastCustom = async () => {
-    if (!customAnnounceText.trim() || selectedZoneIds.length === 0) return;
+    if (!customAnnounceText.trim() || selectedZoneIds.length === 0 || telemetry.activePriorityLevel < 5) return;
     setIsBroadcasting(true);
     await onBroadcastToZones(selectedZoneIds, customAnnounceText, customEnglishText);
     setIsBroadcasting(false);
@@ -474,19 +484,29 @@ export const DockControls: React.FC<DockControlsProps> = ({
                     value={customAnnounceText}
                     onChange={(e) => setCustomAnnounceText(e.target.value)}
                     placeholder="Ketik teks siaran manual..."
-                    className="skeuo-input w-full sm:flex-1 px-3.5 py-2 text-xs font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                    disabled={isHighPriorityMuteActive}
+                    className="skeuo-input w-full sm:flex-1 px-3.5 py-2 text-xs font-semibold placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/50 disabled:opacity-60"
                   />
                   <button
                     onClick={handleBroadcastCustom}
-                    disabled={isBroadcasting || selectedZoneIds.length === 0}
+                    disabled={isBroadcasting || selectedZoneIds.length === 0 || isHighPriorityMuteActive}
                     className="skeuo-btn-emerald w-full sm:w-auto flex items-center justify-center space-x-2 px-5 py-2 disabled:opacity-50 font-bold uppercase text-xs shrink-0 cursor-pointer"
                   >
-                    <Send className="w-3.5 h-3.5 stroke-[2.2]" />
-                    <span>
-                      {isBroadcasting
-                        ? 'Menyiarkan Chime + Audio...'
-                        : `Siarkan ke ${selectedZoneIds.length} Zona`}
-                    </span>
+                    {isHighPriorityMuteActive ? (
+                      <>
+                        <VolumeX className="w-3.5 h-3.5 stroke-[2.2]" />
+                        <span>AUTO-MUTE ({isAdzanActive ? 'Adzan ON' : isIndonesiaRayaActive ? 'Indonesia Raya ON' : 'Darurat ON'})</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5 stroke-[2.2]" />
+                        <span>
+                          {isBroadcasting
+                            ? 'Menyiarkan Chime + Audio...'
+                            : `Siarkan ke ${selectedZoneIds.length} Zona`}
+                        </span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -505,7 +525,7 @@ export const DockControls: React.FC<DockControlsProps> = ({
                       </span>
                     </div>
                     <span className="skeuo-lcd text-[10px] font-bold px-2.5 py-0.5 text-amber-300">
-                      Priority 2 (Care Call)
+                      Priority 4 (Care Call)
                     </span>
                   </div>
 
@@ -513,14 +533,14 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   <div className="space-y-1.5 skeuo-lcd p-3">
                     <div className="flex justify-between text-[10px] font-bold text-slate-300">
                       <span>Audio Input Level (VU Meter):</span>
-                      <span className="text-emerald-400 font-extrabold">
-                        {(vuLevel * 100).toFixed(0)} %
+                      <span className={isHighPriorityMuteActive ? 'text-rose-400 font-extrabold' : 'text-emerald-400 font-extrabold'}>
+                        {isHighPriorityMuteActive ? 'AUTO-MUTED (0%)' : `${(vuLevel * 100).toFixed(0)} %`}
                       </span>
                     </div>
                     <div className="h-3.5 w-full bg-slate-950 rounded-full border border-slate-700 shadow-inner overflow-hidden flex p-0.5">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-all duration-75"
-                        style={{ width: `${Math.min(100, vuLevel * 100)}%` }}
+                        style={{ width: `${isHighPriorityMuteActive ? 0 : Math.min(100, vuLevel * 100)}%` }}
                       />
                     </div>
                   </div>
@@ -546,13 +566,19 @@ export const DockControls: React.FC<DockControlsProps> = ({
                     onMouseUp={handleStopPaging}
                     onTouchStart={handleStartPaging}
                     onTouchEnd={handleStopPaging}
-                    className={`w-full py-4 flex items-center justify-center space-x-2 font-extrabold text-sm tracking-wider uppercase cursor-pointer ${
+                    disabled={isHighPriorityMuteActive}
+                    className={`w-full py-4 flex items-center justify-center space-x-2 font-extrabold text-sm tracking-wider uppercase cursor-pointer disabled:opacity-50 ${
                       isPagingActive
                         ? 'skeuo-btn-crimson skeuo-btn-pressed animate-pulse'
                         : 'skeuo-btn-amber'
                     }`}
                   >
-                    {isPagingActive ? (
+                    {isHighPriorityMuteActive ? (
+                      <>
+                        <VolumeX className="w-5 h-5 text-slate-900 stroke-[2.2]" />
+                        <span>AUTO-MUTE: {isAdzanActive ? 'Adzan Level 2 ON' : isIndonesiaRayaActive ? 'Indonesia Raya Level 3 ON' : 'Darurat Level 1 ON'}</span>
+                      </>
+                    ) : isPagingActive ? (
                       <>
                         <Mic className="w-5 h-5 text-white stroke-[2.2]" />
                         <span>ON-AIR: Tahan Untuk Siaran Langsung</span>
@@ -566,7 +592,7 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   </button>
 
                   <p className="text-[10px] text-slate-700 font-semibold text-center">
-                    *Memicu nada 4-chime otomatis, me-redam BGM sebesar -24 dB, dan menyalurkan audio waktu-nyata ke zona aktif.
+                    *Prioritas Level 4: Otomatis ter-Mute apabila Audio Adzan (Level 2) atau Indonesia Raya (Level 3) sedang berlangsung (ON).
                   </p>
                 </div>
 
@@ -595,11 +621,20 @@ export const DockControls: React.FC<DockControlsProps> = ({
                     />
                     <button
                       onClick={handleSipCall}
-                      disabled={isSipCalling}
+                      disabled={isSipCalling || isHighPriorityMuteActive}
                       className="skeuo-btn-sky px-4 py-2 disabled:opacity-50 font-extrabold uppercase text-xs flex items-center space-x-1.5 cursor-pointer shrink-0"
                     >
-                      <PhoneCall className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span>{isSipCalling ? 'Menghubungkan...' : 'Dial SIP'}</span>
+                      {isHighPriorityMuteActive ? (
+                        <>
+                          <VolumeX className="w-3.5 h-3.5 stroke-[2.2]" />
+                          <span>Auto-Mute</span>
+                        </>
+                      ) : (
+                        <>
+                          <PhoneCall className="w-3.5 h-3.5 stroke-[2.2]" />
+                          <span>{isSipCalling ? 'Menghubungkan...' : 'Dial SIP'}</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -665,12 +700,19 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   <div className="skeuo-lcd flex items-center space-x-2 px-3 py-1 text-sky-300">
                     <Plane className="w-4 h-4 text-sky-400 stroke-[2.2]" />
                     <span className="font-bold uppercase">
-                      FIDS Schedule & AI Text-to-Speech (Multi-Bahasa)
+                      FIDS Schedule & AI Text-to-Speech (Prioritas Level 5)
                     </span>
                   </div>
-                  <span className="skeuo-lcd text-[11px] font-bold text-amber-300 px-3 py-1">
-                    Otomatisasi Chime + ID-ID & EN-US
-                  </span>
+                  {isHighPriorityMuteActive ? (
+                    <span className="skeuo-lcd flex items-center space-x-1 text-[11px] font-extrabold text-rose-400 px-3 py-1">
+                      <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                      <span>FIDS AUTO-MUTE ({isAdzanActive ? 'Adzan Level 2 ON' : isIndonesiaRayaActive ? 'Indonesia Raya Level 3 ON' : 'Darurat Level 1 ON'})</span>
+                    </span>
+                  ) : (
+                    <span className="skeuo-lcd text-[11px] font-bold text-amber-300 px-3 py-1">
+                      Otomatisasi Chime + ID-ID & EN-US
+                    </span>
+                  )}
                 </div>
 
                 {/* Flights List Table */}
@@ -678,7 +720,9 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   {flights.map((flight) => (
                     <div
                       key={flight.id}
-                      className="skeuo-card p-3 space-y-2 transition-all"
+                      className={`skeuo-card p-3 space-y-2 transition-all ${
+                        isHighPriorityMuteActive ? 'opacity-70' : ''
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -712,11 +756,20 @@ export const DockControls: React.FC<DockControlsProps> = ({
                         <span>{flight.gate} &bull; {flight.scheduledTime}</span>
                         <button
                           onClick={() => handleBroadcastFlight(flight)}
-                          disabled={isBroadcasting}
+                          disabled={isBroadcasting || isHighPriorityMuteActive}
                           className="skeuo-btn-sky flex items-center space-x-1 px-3 py-1 font-bold text-[10px] uppercase cursor-pointer disabled:opacity-50"
                         >
-                          <Play className="w-3 h-3 fill-current" />
-                          <span>Siarkan Chime</span>
+                          {isHighPriorityMuteActive ? (
+                            <>
+                              <VolumeX className="w-3 h-3" />
+                              <span>Auto-Mute</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>Siarkan Chime</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -776,13 +829,35 @@ export const DockControls: React.FC<DockControlsProps> = ({
             {/* ================= TAB 4: PRIORITY MATRIX & SCHEDULER ================= */}
             {activeTab === 'priority' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="skeuo-lcd font-bold uppercase text-purple-300 px-3 py-1">
                     Matriks Prioritas Mutlak (6 Tingkat EN 54-16)
                   </span>
-                  <span className="skeuo-lcd text-[11px] font-bold text-slate-300 px-3 py-1">
-                    Hardware & Software Rules-Engine Override
-                  </span>
+
+                  {(isAdzanActive || isIndonesiaRayaActive) ? (
+                    <div className="flex items-center space-x-2">
+                      <span className="skeuo-lcd flex items-center space-x-1.5 text-[11px] font-extrabold text-emerald-300 px-3 py-1 border border-emerald-500/50 animate-pulse">
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>
+                          {isAdzanActive
+                            ? 'LEVEL 2 ADZAN SEDANG BERLANGSUNG (ON) • PRIORITAS 3–6 AUTO-MUTE'
+                            : 'LEVEL 3 INDONESIA RAYA SEDANG BERLANGSUNG (ON) • PRIORITAS 4–6 AUTO-MUTE'}
+                        </span>
+                      </span>
+                      <button
+                        onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                        className="skeuo-btn-crimson flex items-center space-x-1 px-2.5 py-1 text-[10px] font-extrabold uppercase cursor-pointer"
+                        title="Hentikan Siaran Adzan / Indonesia Raya dan Pulihkan Prioritas di Bawahnya"
+                      >
+                        <Square className="w-3 h-3 fill-current" />
+                        <span>Stop (OFF)</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="skeuo-lcd text-[11px] font-bold text-slate-300 px-3 py-1">
+                      Adzan (Level 2) &amp; Indonesia Raya (Level 3) Auto-Mute Prioritas di Bawahnya
+                    </span>
+                  )}
                 </div>
 
                 {/* Priority Table */}
@@ -790,67 +865,132 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   {([1, 2, 3, 4, 5, 6] as PriorityLevel[]).map((lvl) => {
                     const item = PRIORITY_MATRIX[lvl];
                     const isCurrent = telemetry.activePriorityLevel === lvl;
+                    const isAutoMuted =
+                      (telemetry.activePriorityLevel === 1 && lvl > 1) ||
+                      (telemetry.activePriorityLevel === 2 && lvl > 2) ||
+                      (telemetry.activePriorityLevel === 3 && lvl > 3);
 
                     return (
                       <div
                         key={lvl}
-                        className={`flex items-center justify-between p-2.5 transition-all ${
-                          isCurrent ? 'skeuo-card-active' : 'skeuo-card'
+                        className={`flex flex-wrap items-center justify-between gap-2 p-2.5 transition-all ${
+                          isCurrent
+                            ? 'skeuo-card-active'
+                            : isAutoMuted
+                            ? 'skeuo-card opacity-75'
+                            : 'skeuo-card'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <span
-                            className="w-3.5 h-3.5 rounded-full border border-slate-700 shadow-inner"
+                            className="w-3.5 h-3.5 rounded-full border border-slate-700 shadow-inner shrink-0"
                             style={{
-                              backgroundColor: item.color,
-                              boxShadow: `0 0 6px ${item.color}`,
+                              backgroundColor: isAutoMuted ? '#64748b' : item.color,
+                              boxShadow: isAutoMuted ? 'none' : `0 0 6px ${item.color}`,
                             }}
                           />
-                          <span className="font-extrabold text-slate-900 w-16">
+                          <span className="font-extrabold text-slate-900 w-16 shrink-0">
                             LEVEL {item.level}
                           </span>
-                          <span className="text-slate-800 font-bold">
+                          <span className={`font-bold ${isAutoMuted ? 'text-slate-600 line-through' : 'text-slate-800'}`}>
                             {item.name}
                           </span>
+                          {isCurrent && lvl < 6 && (
+                            <span className="skeuo-lcd flex items-center space-x-1 text-[10px] px-2 py-0.5 font-extrabold text-emerald-300 border border-emerald-500/40">
+                              <Volume2 className="w-3 h-3 text-emerald-400" />
+                              <span>ON (AKTIF)</span>
+                            </span>
+                          )}
+                          {isAutoMuted && (
+                            <span className="skeuo-lcd flex items-center space-x-1 text-[10px] px-2 py-0.5 font-extrabold text-rose-400 border border-rose-500/40">
+                              <VolumeX className="w-3 h-3 text-rose-400" />
+                              <span>AUTO-MUTE</span>
+                            </span>
+                          )}
                         </div>
 
-                        <div className="flex items-center space-x-3">
-                          <span className="text-[11px] text-slate-600 font-semibold hidden md:inline">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[11px] text-slate-600 font-semibold hidden lg:inline">
                             {item.description}
                           </span>
-                          <span className="skeuo-lcd text-[11px] px-2.5 py-0.5 font-bold text-amber-300">
-                            {item.duckingDb === -90
-                              ? 'MUTE ALL'
+                          <span
+                            className={`skeuo-lcd text-[11px] px-2.5 py-0.5 font-bold ${
+                              isAutoMuted
+                                ? 'text-rose-400'
+                                : item.duckingDb === -90
+                                ? 'text-emerald-300'
+                                : 'text-amber-300'
+                            }`}
+                          >
+                            {isAutoMuted
+                              ? 'MUTED (OFF)'
+                              : item.duckingDb === -90
+                              ? 'AUTO-MUTE BAWAH'
                               : `${item.duckingDb} dB`}
                           </span>
 
-                          {/* Quick manual simulation triggers */}
-                          {lvl === 4 && (
+                          {/* Quick manual simulation triggers for Level 2 (Adzan) */}
+                          {lvl === 2 && (
                             <div className="flex items-center space-x-1.5">
-                              <button
-                                onClick={() => audioEngine.playScheduledAdzan(false)}
-                                className="skeuo-btn-emerald px-2.5 py-1 text-[10px] cursor-pointer font-bold"
-                                title="Siarkan Adzan Biasa (Dzuhur, Ashar, Maghrib, Isya)"
-                              >
-                                Test Adzan Biasa
-                              </button>
-                              <button
-                                onClick={() => audioEngine.playScheduledAdzan(true)}
-                                className="skeuo-btn-sky px-2.5 py-1 text-[10px] cursor-pointer font-bold"
-                                title="Siarkan Adzan Subuh dengan lafaz Ash-shalatu khairum minan naum"
-                              >
-                                Test Adzan Subuh
-                              </button>
+                              {isAdzanActive ? (
+                                <button
+                                  onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                                  className="skeuo-btn-crimson flex items-center space-x-1 px-2.5 py-1 text-[10px] cursor-pointer font-extrabold"
+                                  title="Matikan Siaran Adzan (OFF)"
+                                >
+                                  <Square className="w-2.5 h-2.5 fill-current" />
+                                  <span>Stop Adzan (ON)</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => audioEngine.playScheduledAdzan(false)}
+                                    disabled={telemetry.activePriorityLevel === 1}
+                                    className="skeuo-btn-emerald px-2.5 py-1 text-[10px] cursor-pointer font-bold disabled:opacity-50"
+                                    title="Siarkan Adzan Biasa (Prioritas 2 - Otomatis Mute Level 3-6)"
+                                  >
+                                    Test Adzan Biasa
+                                  </button>
+                                  <button
+                                    onClick={() => audioEngine.playScheduledAdzan(true)}
+                                    disabled={telemetry.activePriorityLevel === 1}
+                                    className="skeuo-btn-sky px-2.5 py-1 text-[10px] cursor-pointer font-bold disabled:opacity-50"
+                                    title="Siarkan Adzan Subuh (Prioritas 2 - Otomatis Mute Level 3-6)"
+                                  >
+                                    Test Adzan Subuh
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
-                          {lvl === 5 && (
-                            <button
-                              onClick={() => audioEngine.playIndonesiaRaya()}
-                              className="skeuo-btn-crimson px-2.5 py-1 text-[10px] cursor-pointer font-bold"
-                              title="Siarkan Lagu Kebangsaan Indonesia Raya (Terjadwal 10:00 WIB)"
-                            >
-                              Test Lagu Kebangsaan
-                            </button>
+
+                          {/* Quick manual simulation trigger for Level 3 (Indonesia Raya) */}
+                          {lvl === 3 && (
+                            <div className="flex items-center space-x-1.5">
+                              {isIndonesiaRayaActive ? (
+                                <button
+                                  onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                                  className="skeuo-btn-crimson flex items-center space-x-1 px-2.5 py-1 text-[10px] cursor-pointer font-extrabold"
+                                  title="Matikan Siaran Indonesia Raya (OFF)"
+                                >
+                                  <Square className="w-2.5 h-2.5 fill-current" />
+                                  <span>Stop Lagu Kebangsaan (ON)</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => audioEngine.playIndonesiaRaya()}
+                                  disabled={isAutoMuted}
+                                  className="skeuo-btn-crimson px-2.5 py-1 text-[10px] cursor-pointer font-bold disabled:opacity-50"
+                                  title={
+                                    isAutoMuted
+                                      ? 'Otomatis Ter-Mute karena Prioritas di atasnya (Adzan / Darurat) sedang berlangsung (ON)'
+                                      : 'Siarkan Lagu Kebangsaan Indonesia Raya (Prioritas 3 - Otomatis Mute Level 4-6)'
+                                  }
+                                >
+                                  {isAutoMuted ? 'Ter-Mute (Adzan ON)' : 'Test Lagu Kebangsaan'}
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -859,7 +999,7 @@ export const DockControls: React.FC<DockControlsProps> = ({
                 </div>
 
                 <div className="skeuo-card p-3 text-[11px] font-semibold text-slate-800">
-                  <span className="font-extrabold uppercase underline">Logika Pe-redaman (Audio Ducking):</span> Ketika prioritas lebih tinggi aktif (misal Level 3 FIDS, Level 4 Adzan, atau Level 5 Indonesia Raya), BGM di Level 6 secara otomatis mengalami pelemahan volume (*ducking*) secara mulus, dan akan kembali normal (*fade-in*) setelah siaran selesai.
+                  <span className="font-extrabold uppercase underline">Logika Mute Otomatis &amp; Audio Ducking:</span> Prioritas <strong>Adzan Terjadwal (Level 2)</strong> dan <strong>Indonesia Raya (Level 3)</strong> secara otomatis melakukan <strong>MUTE TOTAL (-90 dB)</strong> terhadap seluruh prioritas di bawahnya apabila sedang berlangsung (<strong>ON</strong>). Setelah siaran Adzan atau Indonesia Raya selesai (<strong>OFF</strong>), saluran prioritas di bawahnya otomatis pulih kembali.
                 </div>
 
                 {/* Upload & Audio Assets Management Section */}
@@ -882,91 +1022,10 @@ export const DockControls: React.FC<DockControlsProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-                    {/* BGM Upload Card */}
+                    {/* Adzan Biasa Upload Card (Level 2) */}
                     <div className="skeuo-card p-2.5 space-y-1.5">
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-extrabold text-slate-900">BGM Terminal</span>
-                        <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            customTracks?.bgm.hasCustomFile
-                              ? 'bg-emerald-100 text-emerald-900 border-emerald-500'
-                              : 'bg-slate-200 text-slate-700 border-slate-400'
-                          }`}
-                        >
-                          {customTracks?.bgm.hasCustomFile ? 'KUSTOM' : 'DEFAULT'}
-                        </span>
-                      </div>
-                      <div className="text-[10px] font-semibold text-slate-600 truncate">
-                        {customTracks?.bgm.fileName || 'Prosedural Ambient'}
-                      </div>
-                      <div className="flex space-x-1.5 pt-1">
-                        <label className="skeuo-btn flex-1 py-1 font-bold text-[10px] text-center cursor-pointer">
-                          Upload
-                          <input
-                            type="file"
-                            accept="audio/*,.mp3,.wav,.ogg,.m4a"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f && onUploadTrack) onUploadTrack('bgm', f);
-                            }}
-                          />
-                        </label>
-                        <button
-                          onClick={() => {
-                            if (audioEngine.isBgmActive()) audioEngine.stopBgm();
-                            else audioEngine.startBgm();
-                          }}
-                          className="skeuo-btn-violet px-2.5 py-1 font-bold text-[10px] cursor-pointer"
-                        >
-                          {audioEngine.isBgmActive() ? 'Stop' : 'Putar'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Indonesia Raya Upload Card */}
-                    <div className="skeuo-card p-2.5 space-y-1.5">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-extrabold text-slate-900">Indonesia Raya</span>
-                        <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            customTracks?.indonesiaRaya.hasCustomFile
-                              ? 'bg-emerald-100 text-emerald-900 border-emerald-500'
-                              : 'bg-slate-200 text-slate-700 border-slate-400'
-                          }`}
-                        >
-                          {customTracks?.indonesiaRaya.hasCustomFile ? 'KUSTOM' : 'DEFAULT'}
-                        </span>
-                      </div>
-                      <div className="text-[10px] font-semibold text-slate-600 truncate">
-                        {customTracks?.indonesiaRaya.fileName || 'Prosedural Orkestra'}
-                      </div>
-                      <div className="flex space-x-1.5 pt-1">
-                        <label className="skeuo-btn flex-1 py-1 font-bold text-[10px] text-center cursor-pointer">
-                          Upload
-                          <input
-                            type="file"
-                            accept="audio/*,.mp3,.wav,.ogg,.m4a"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f && onUploadTrack) onUploadTrack('indonesiaRaya', f);
-                            }}
-                          />
-                        </label>
-                        <button
-                          onClick={() => audioEngine.playIndonesiaRaya()}
-                          className="skeuo-btn-crimson px-2.5 py-1 font-bold text-[10px] cursor-pointer"
-                        >
-                          Siarkan
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Adzan Biasa Upload Card */}
-                    <div className="skeuo-card p-2.5 space-y-1.5">
-                      <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-extrabold text-slate-900">Adzan Biasa</span>
+                        <span className="font-extrabold text-slate-900">Adzan Biasa (Lv.2)</span>
                         <span
                           className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
                             customTracks?.adzanRegular.hasCustomFile
@@ -993,19 +1052,28 @@ export const DockControls: React.FC<DockControlsProps> = ({
                             }}
                           />
                         </label>
-                        <button
-                          onClick={() => audioEngine.playScheduledAdzan(false)}
-                          className="skeuo-btn-emerald px-2.5 py-1 font-bold text-[10px] cursor-pointer"
-                        >
-                          Siarkan
-                        </button>
+                        {isAdzanActive ? (
+                          <button
+                            onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                            className="skeuo-btn-crimson px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                          >
+                            Stop
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => audioEngine.playScheduledAdzan(false)}
+                            className="skeuo-btn-emerald px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                          >
+                            Siarkan
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Adzan Subuh Upload Card */}
+                    {/* Adzan Subuh Upload Card (Level 2) */}
                     <div className="skeuo-card p-2.5 space-y-1.5">
                       <div className="flex justify-between items-center text-[11px]">
-                        <span className="font-extrabold text-slate-900">Adzan Subuh</span>
+                        <span className="font-extrabold text-slate-900">Adzan Subuh (Lv.2)</span>
                         <span
                           className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
                             customTracks?.adzanSubuh.hasCustomFile
@@ -1032,11 +1100,116 @@ export const DockControls: React.FC<DockControlsProps> = ({
                             }}
                           />
                         </label>
-                        <button
-                          onClick={() => audioEngine.playScheduledAdzan(true)}
-                          className="skeuo-btn-sky px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                        {isAdzanActive ? (
+                          <button
+                            onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                            className="skeuo-btn-crimson px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                          >
+                            Stop
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => audioEngine.playScheduledAdzan(true)}
+                            className="skeuo-btn-sky px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                          >
+                            Siarkan
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Indonesia Raya Upload Card (Level 3) */}
+                    <div className={`skeuo-card p-2.5 space-y-1.5 ${isAdzanActive ? 'opacity-70' : ''}`}>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="font-extrabold text-slate-900">Indonesia Raya (Lv.3)</span>
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            isAdzanActive
+                              ? 'bg-rose-100 text-rose-900 border-rose-500'
+                              : customTracks?.indonesiaRaya.hasCustomFile
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-500'
+                              : 'bg-slate-200 text-slate-700 border-slate-400'
+                          }`}
                         >
-                          Siarkan
+                          {isAdzanActive ? 'AUTO-MUTE' : customTracks?.indonesiaRaya.hasCustomFile ? 'KUSTOM' : 'DEFAULT'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-semibold text-slate-600 truncate">
+                        {customTracks?.indonesiaRaya.fileName || 'Prosedural Orkestra'}
+                      </div>
+                      <div className="flex space-x-1.5 pt-1">
+                        <label className="skeuo-btn flex-1 py-1 font-bold text-[10px] text-center cursor-pointer">
+                          Upload
+                          <input
+                            type="file"
+                            accept="audio/*,.mp3,.wav,.ogg,.m4a"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f && onUploadTrack) onUploadTrack('indonesiaRaya', f);
+                            }}
+                          />
+                        </label>
+                        {isIndonesiaRayaActive ? (
+                          <button
+                            onClick={() => audioEngine.stopActiveCustomBroadcast()}
+                            className="skeuo-btn-crimson px-2.5 py-1 font-bold text-[10px] cursor-pointer"
+                          >
+                            Stop
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => audioEngine.playIndonesiaRaya()}
+                            disabled={isAdzanActive}
+                            className="skeuo-btn-crimson px-2.5 py-1 font-bold text-[10px] cursor-pointer disabled:opacity-50"
+                          >
+                            {isAdzanActive ? 'Muted' : 'Siarkan'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* BGM Upload Card (Level 6) */}
+                    <div className={`skeuo-card p-2.5 space-y-1.5 ${isHighPriorityMuteActive ? 'opacity-70' : ''}`}>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="font-extrabold text-slate-900">BGM Terminal (Lv.6)</span>
+                        <span
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            isHighPriorityMuteActive
+                              ? 'bg-rose-100 text-rose-900 border-rose-500'
+                              : customTracks?.bgm.hasCustomFile
+                              ? 'bg-emerald-100 text-emerald-900 border-emerald-500'
+                              : 'bg-slate-200 text-slate-700 border-slate-400'
+                          }`}
+                        >
+                          {isHighPriorityMuteActive ? 'AUTO-MUTE' : customTracks?.bgm.hasCustomFile ? 'KUSTOM' : 'DEFAULT'}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-semibold text-slate-600 truncate">
+                        {customTracks?.bgm.fileName || 'Prosedural Ambient'}
+                      </div>
+                      <div className="flex space-x-1.5 pt-1">
+                        <label className="skeuo-btn flex-1 py-1 font-bold text-[10px] text-center cursor-pointer">
+                          Upload
+                          <input
+                            type="file"
+                            accept="audio/*,.mp3,.wav,.ogg,.m4a"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f && onUploadTrack) onUploadTrack('bgm', f);
+                            }}
+                          />
+                        </label>
+                        <button
+                          onClick={() => {
+                            if (audioEngine.isBgmActive()) audioEngine.stopBgm();
+                            else audioEngine.startBgm();
+                          }}
+                          disabled={isHighPriorityMuteActive}
+                          className="skeuo-btn-violet px-2.5 py-1 font-bold text-[10px] cursor-pointer disabled:opacity-50"
+                        >
+                          {isHighPriorityMuteActive ? 'Muted' : audioEngine.isBgmActive() ? 'Stop' : 'Putar'}
                         </button>
                       </div>
                     </div>

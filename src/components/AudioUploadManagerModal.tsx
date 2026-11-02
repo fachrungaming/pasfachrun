@@ -123,17 +123,17 @@ export const AudioUploadManagerModal: React.FC<AudioUploadManagerModalProps> = (
 
     if (type === 'bgm') {
       audioEngine.startBgm();
-      onShowToast('🎵 Memutar Musik Latar BGM Terminal (Looping dengan Audio Ducking)');
+      onShowToast('🎵 Memutar Musik Latar BGM Terminal (Prioritas 6 - Auto-Mute saat Level 1–3 ON)');
     } else if (type === 'indonesiaRaya') {
-      onShowToast('🇮🇩 Menyiarkan Lagu Kebangsaan Indonesia Raya (Prioritas 5)...');
+      onShowToast('🇮🇩 Menyiarkan Lagu Kebangsaan Indonesia Raya (Prioritas 3 - Auto-Mute Level 4–6)...');
       await audioEngine.playIndonesiaRaya();
       setPlayingTrackId(null);
     } else if (type === 'adzanRegular') {
-      onShowToast('🕌 Menyiarkan Adzan Biasa (Prioritas 4 - Redam BGM)...');
+      onShowToast('🕌 Menyiarkan Adzan Biasa (Prioritas 2 - Auto-Mute Level 3–6)...');
       await audioEngine.playScheduledAdzan(false);
       setPlayingTrackId(null);
     } else if (type === 'adzanSubuh') {
-      onShowToast('🕌 Menyiarkan Adzan Subuh (Lafaz Ash-shalatu khairum minan naum)...');
+      onShowToast('🕌 Menyiarkan Adzan Subuh (Prioritas 2 - Auto-Mute Level 3–6)...');
       await audioEngine.playScheduledAdzan(true);
       setPlayingTrackId(null);
     }

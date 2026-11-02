@@ -129,7 +129,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               &middot;
             </span>
             <span className="text-[11px] text-cyan-400">
-              {activePriority.duckingDb} dB Duck
+              {activePriority.duckingDb === -90
+                ? activePriority.level === 1
+                  ? 'MUTE ALL'
+                  : `AUTO-MUTE LV.${activePriority.level + 1}–6`
+                : `${activePriority.duckingDb} dB Duck`}
             </span>
           </div>
         )}
